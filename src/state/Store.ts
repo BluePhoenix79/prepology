@@ -34,7 +34,21 @@ function loadState(): AppState {
         if (!parsed.stats.savedQuestions) parsed.stats.savedQuestions = [];
         if (parsed.stats.streak === undefined) parsed.stats.streak = 0;
       }
-      return { ...defaultState, ...parsed, stats: { ...defaultState.stats, ...parsed.stats } };
+      // SELF-REPAIR: If old large questionBank exists in localStorage, prune it to free up quota
+      if (parsed.questionBank) {
+        delete parsed.questionBank;
+        try {
+          localStorage.setItem('preplogy_state', JSON.stringify(parsed));
+        } catch (err) {
+          console.error('Failed to prune legacy questionBank', err);
+        }
+      }
+      return { 
+        ...defaultState, 
+        ...parsed, 
+        stats: { ...defaultState.stats, ...parsed.stats },
+        questionBank: [] // Reset questionBank so it is loaded fresh from JSON
+      };
     } catch (e) {
       console.error('Failed to load state', e);
       localStorage.removeItem('preplogy_state');
@@ -44,8 +58,9 @@ function loadState(): AppState {
 }
 
 function saveState(state: AppState) {
-  // Convert Sets to Arrays for JSON serialization
-  const stateToSave = JSON.parse(JSON.stringify(state, (_key, value) => {
+  // Convert Sets to Arrays for JSON serialization, and omit static questionBank to save storage space
+  const { questionBank, ...rest } = state;
+  const stateToSave = JSON.parse(JSON.stringify(rest, (_key, value) => {
     if (value instanceof Set) {
       return Array.from(value);
     }
@@ -92,8 +107,11 @@ class Store {
     this.notify();
   }
 
-  public startSession(section: TestSession['currentSection'], difficulty?: number, domain?: string, skill?: string) {
+  public startSession(section: TestSession['currentSection'], difficulty?: number, domain?: string, skill?: string, isOfficial?: boolean) {
     let filtered = this.state.questionBank.filter(q => q.section === section);
+    if (isOfficial !== undefined) {
+      filtered = filtered.filter(q => !!q.official === isOfficial);
+    }
     if (difficulty && difficulty !== 0) {
       filtered = filtered.filter(q => q.difficulty === difficulty);
     }

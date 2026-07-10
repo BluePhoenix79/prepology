@@ -113,6 +113,11 @@ function render() {
     sidebar.querySelector('#side-saved')?.addEventListener('click', () => store.setView('saved'));
     sidebar.querySelector('#side-analytics')?.addEventListener('click', () => store.setView('analytics'));
   }
+
+  // Trigger MathJax typeset to compile LaTeX math formulas
+  setTimeout(() => {
+    (window as any).MathJax?.typesetPromise?.();
+  }, 10);
 }
 
 // Initial render

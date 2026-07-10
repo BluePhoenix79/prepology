@@ -415,18 +415,18 @@ select:focus, input:focus {
 }
 .bb-exit:hover { background: #f5f5f5; color: #222; }
 
-/* Thin color bar below header (Bluebook signature) */
 .bb-color-bar {
   height: 4px;
   background: repeating-linear-gradient(90deg,
-    #1a56db 0px, #1a56db 40px,
-    #d97706 40px, #d97706 80px,
-    #059669 80px, #059669 120px,
-    #dc2626 120px, #dc2626 160px,
-    #7c3aed 160px, #7c3aed 200px,
-    #0891b2 200px, #0891b2 240px
+    #facc15 0px, #facc15 10px,
+    transparent 10px, transparent 15px,
+    #3b82f6 15px, #3b82f6 25px,
+    transparent 25px, transparent 30px,
+    #94a3b8 30px, #94a3b8 40px,
+    transparent 40px, transparent 45px
   );
   flex-shrink: 0;
+  width: 100%;
 }
 
 /* ── Main content area ── */
@@ -498,6 +498,24 @@ select:focus, input:focus {
   padding: 0 2rem;
 }
 
+/* Math Graphics Split Styling */
+.bb-math-graphic-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 350px;
+}
+.bb-math-graphic-container svg, .bb-math-graphic-container img {
+  max-width: 95%;
+  max-height: 75vh;
+  width: auto;
+  height: auto;
+  display: block;
+}
+
+
 /* ── Question header row ── */
 .bb-q-header {
   display: flex;
@@ -542,6 +560,13 @@ select:focus, input:focus {
 }
 .bb-q-tool-btn:hover { background: #e2e2e2; }
 .bb-q-tool-btn.flagged { color: #b91c1c; }
+.bb-q-tool-btn.active {
+  background: #1a56db;
+  color: #ffffff;
+}
+.bb-q-tool-btn.active:hover {
+  background: #1e40af;
+}
 
 .bb-q-sep { width: 1px; height: 20px; background: #d4d4d4; margin: 0 2px; flex-shrink: 0; }
 
@@ -987,6 +1012,37 @@ select:focus, input:focus {
   margin: 0 auto;
 }
 
+/* Source tabs (Practice Drills vs Official CB) */
+.op-source-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  background: var(--c-elevated);
+  padding: 0.35rem;
+  border-radius: var(--r-md);
+  width: max-content;
+}
+.op-source-tab {
+  background: transparent;
+  border: none;
+  color: var(--c-text-3);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: var(--r-sm);
+  transition: all 0.2s;
+  font-family: var(--font);
+}
+.op-source-tab:hover {
+  color: var(--c-text);
+}
+.op-source-tab.active {
+  color: var(--c-text);
+  background: var(--c-card);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
 /* Section tabs */
 .op-section-tabs {
   display: flex;
@@ -1040,6 +1096,50 @@ select:focus, input:focus {
 .op-header-actions {
   display: flex;
   gap: 0.75rem;
+  align-items: center;
+}
+.op-search-box {
+  display: flex;
+  background: var(--c-elevated);
+  border: 1px solid var(--c-border-md);
+  border-radius: 6px;
+  overflow: hidden;
+  align-items: center;
+  height: 34px;
+}
+.op-search-input {
+  background: transparent;
+  border: none;
+  padding: 0 0.75rem;
+  font-size: 0.825rem;
+  color: var(--c-text-1);
+  font-family: var(--font);
+  width: 170px;
+  height: 100%;
+}
+.op-search-input:focus {
+  outline: none;
+}
+.op-search-input::placeholder {
+  color: var(--c-text-3);
+}
+.op-search-btn {
+  background: #1a56db;
+  color: #fff;
+  border: none;
+  padding: 0 0.85rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.15s;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.op-search-btn:hover {
+  background: #1e40af;
 }
 .op-filter-dropdown {
   display: flex;
@@ -1332,78 +1432,191 @@ select:focus, input:focus {
 }
 
 /* Bluebook Question Navigation Drawer */
+.bb-drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2.5px);
+  z-index: 999;
+  animation: fadeIn 0.15s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .bb-nav-drawer {
   position: absolute;
-  bottom: 68px;
+  bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  width: 330px;
+  width: 90%;
+  max-width: 480px;
   background: #ffffff;
-  border: 1px solid #d4d4d4;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
   display: flex;
   flex-direction: column;
   z-index: 1000;
-  padding: 1rem;
+  padding: 1.25rem;
+  animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, 20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
 .bb-drawer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1.5px solid #e2e8f0;
-  padding-bottom: 0.5rem;
   margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #1a1a1a;
 }
+.bb-drawer-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #18181b;
+}
+.bb-drawer-close {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  color: #71717a;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.bb-drawer-close:hover {
+  color: #18181b;
+}
+
+.bb-drawer-legend {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e4e4e7;
+  justify-content: center;
+}
+.bb-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #52525b;
+}
+.bb-legend-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+.bb-legend-box.unanswered {
+  border: 1.5px dashed #a1a1aa;
+}
+.bb-legend-box.flagged {
+  background: #c0392b;
+  position: relative;
+  width: 10px;
+  height: 12px;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 50% 80%, 0% 100%);
+}
+
 .bb-drawer-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.5rem;
-  max-height: 220px;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 0.625rem 0.25rem;
+  max-height: 260px;
   overflow-y: auto;
-  padding-right: 2px;
+  padding: 0.5rem 0.25rem;
 }
+
+.bb-drawer-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 52px;
+}
+
+.bb-drawer-curr-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a56db;
+  height: 12px;
+  margin-bottom: 2px;
+}
+
 .bb-drawer-item {
   position: relative;
-  width: 46px;
-  height: 46px;
-  border-radius: 6px;
-  border: 1.5px solid #d4d4d4;
-  background: #ffffff;
-  color: #1a1a1a;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
   font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.1s;
+  transition: all 0.15s;
   font-family: var(--font);
 }
-.bb-drawer-item:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+.bb-drawer-item--unanswered {
+  border: 2px dashed #a1a1aa;
+  background: #ffffff;
+  color: #52525b;
+}
+.bb-drawer-item--answered {
+  border: 2px solid #1a56db;
+  background: #1a56db;
+  color: #ffffff;
 }
 .bb-drawer-item--current {
-  border-color: #1a56db !important;
-  border-width: 2px;
-  box-shadow: 0 0 0 2px rgba(26, 86, 219, 0.15);
+  outline: 2.5px solid #1a56db;
+  outline-offset: 1px;
 }
-.bb-drawer-dot {
-  position: absolute;
-  bottom: 5px;
-  width: 16px;
-  height: 3px;
-  background: #1a56db;
-  border-radius: 1.5px;
-}
-.bb-drawer-flag {
+
+.bb-drawer-flag-marker {
   position: absolute;
   top: -4px;
-  right: -4px;
-  font-size: 0.75rem;
-  z-index: 2;
+  right: -2px;
+  width: 10px;
+  height: 12px;
+  background: #c0392b;
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 50% 80%, 0% 100%);
+  z-index: 5;
+}
+
+.bb-drawer-action-btn {
+  margin-top: 1.25rem;
+  background: #ffffff;
+  border: 1.5px solid #1a56db;
+  color: #1a56db;
+  border-radius: 20px;
+  padding: 0.45rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+  align-self: center;
+}
+.bb-drawer-action-btn:hover {
+  background: rgba(26, 86, 219, 0.05);
 }

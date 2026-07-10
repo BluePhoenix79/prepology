@@ -12,6 +12,21 @@
     <meta name="description" content="Preplogy - A comprehensive SAT prep platform with real question bank integration, adaptive practice, and detailed rationale feedback.">
     <!-- Main Style -->
     <link rel="stylesheet" href="/src/styles/main.css">
+    <!-- MathJax Configuration for LaTeX formatting -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          processEscapes: true
+        },
+        options: {
+          ignoreHtmlClass: 'tex2jax_ignore',
+          processHtmlClass: 'tex2jax_process'
+        }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </head>
   <body>
     <div id="app"></div>

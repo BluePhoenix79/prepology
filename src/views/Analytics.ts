@@ -12,6 +12,29 @@ export function renderAnalytics(): HTMLElement {
   const streak = stats.streak || 0;
   const solvedMap = stats.solved || {};
 
+  // Score Predictor logic
+  const mathSolved = Object.keys(solvedMap).filter(id => {
+    const q = questionBank.find(x => x.id === id);
+    return q && q.section === 'Math';
+  });
+  const mathCorrect = mathSolved.filter(id => solvedMap[id].correct).length;
+  const mathAcc = mathSolved.length > 0 ? mathCorrect / mathSolved.length : 0;
+  const mathEstimated = mathSolved.length >= 5 ? Math.round(mathAcc * 600 + 200) : 400;
+  const mathScoreLabel = mathSolved.length >= 5 ? `${mathEstimated}` : `— (need 5 solves)`;
+
+  const rwSolved = Object.keys(solvedMap).filter(id => {
+    const q = questionBank.find(x => x.id === id);
+    return q && q.section === 'Reading and Writing';
+  });
+  const rwCorrect = rwSolved.filter(id => solvedMap[id].correct).length;
+  const rwAcc = rwSolved.length > 0 ? rwCorrect / rwSolved.length : 0;
+  const rwEstimated = rwSolved.length >= 5 ? Math.round(rwAcc * 600 + 200) : 400;
+  const rwScoreLabel = rwSolved.length >= 5 ? `${rwEstimated}` : `— (need 5 solves)`;
+
+  const combinedScore = (mathSolved.length >= 5 && rwSolved.length >= 5) 
+    ? mathEstimated + rwEstimated 
+    : '—';
+
   // Group solved questions by skill to find weak areas
   const skillStats: Record<string, { total: number; correct: number; domain: string; section: string }> = {};
 
@@ -65,6 +88,18 @@ export function renderAnalytics(): HTMLElement {
     </div>
 
     <div style="display:grid;grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));gap:1.5rem;margin-bottom:2.5rem;">
+      <!-- Estimated score card -->
+      <div class="glass" style="padding:1.5rem;border-radius:12px;position:relative;background:#fff;border:1px solid #e2e8f0;display:flex;align-items:center;gap:1.25rem;">
+        <svg viewBox="0 0 24 24" width="28" height="28" stroke="#7c3aed" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+        <div>
+          <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;">Predicted SAT Score</div>
+          <div style="font-size:1.85rem;font-weight:800;color:#7c3aed;line-height:1.2;">${combinedScore} <span style="font-size:0.9rem;color:#64748b;font-weight:600;">/ 1600</span></div>
+          <div style="font-size:0.75rem;color:#64748b;margin-top:0.15rem;">
+            R&W: <strong style="color:#0f172a;">${rwScoreLabel}</strong> · Math: <strong style="color:#0f172a;">${mathScoreLabel}</strong>
+          </div>
+        </div>
+      </div>
+
       <!-- Streak card -->
       <div class="glass" style="padding:1.5rem;border-radius:12px;position:relative;background:#fff;border:1px solid #e2e8f0;display:flex;align-items:center;gap:1.25rem;">
         <svg viewBox="0 0 24 24" width="28" height="28" stroke="#ef4444" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
@@ -87,7 +122,7 @@ export function renderAnalytics(): HTMLElement {
 
       <!-- Accuracy card -->
       <div class="glass" style="padding:1.5rem;border-radius:12px;position:relative;background:#fff;border:1px solid #e2e8f0;display:flex;align-items:center;gap:1.25rem;">
-        <svg viewBox="0 0 24 24" width="28" height="28" stroke="#10b981" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+        <svg viewBox="0 0 24 24" width="28" height="28" stroke="#10b981" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         <div>
           <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;font-weight:700;">Overall Accuracy</div>
           <div style="font-size:1.85rem;font-weight:800;color:#0f172a;line-height:1.2;">${accuracy}%</div>

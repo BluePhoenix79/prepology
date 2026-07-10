@@ -9,13 +9,6 @@ function renderMath(text: string): string {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     // italic *text*
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // superscript ^{expr} or ^n
-    .replace(/\^{([^}]+)}/g, '<sup>$1</sup>')
-    .replace(/\^(\w)/g, '<sup>$1</sup>')
-    // subscript _{expr}
-    .replace(/_{([^}]+)}/g, '<sub>$1</sub>')
-    // basic fractions written as (a)/(b)
-    .replace(/\(([^)]+)\)\/\(([^)]+)\)/g, '<span class="frac"><sup>$1</sup>&frasl;<sub>$2</sub></span>')
     // newlines → <br>
     .replace(/\n/g, '<br>');
 }
@@ -30,6 +23,8 @@ const SVG = {
   pencil:  `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
   check:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
   cross:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  elimSvg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.65;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+  targetSvg: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg>`
 };
 
 export function renderTestSession(): HTMLElement {
@@ -63,13 +58,14 @@ export function renderTestSession(): HTMLElement {
 
   let idx = 0;
   let drawerOpen = false;
+  let elimMode = false;
 
   function draw() {
     root.innerHTML = '';
 
     const q      = questions[idx];
     const sess   = store.getState().session!;
-    const isMath = sess.currentSection === 'Math';
+    const isMath = q.section === 'Math';
 
     const checked    = sess.checked    ?? new Set<string>();
     const eliminated = sess.eliminatedOptions[q.id] ?? new Set<string>();
@@ -79,13 +75,16 @@ export function renderTestSession(): HTMLElement {
     const isChecked  = checked.has(q.id);
     const isLast     = idx === questions.length - 1;
     const diffLabel  = q.difficulty === 1 ? 'Easy' : q.difficulty === 2 ? 'Medium' : 'Hard';
+    const displayId  = q.id.replace(/_(read|math)$/i, '');
+
+    const sectionLabel = q.section === 'Math' ? 'Math' : 'R+W';
 
     /* ───── NAV BAR ───── */
     const nav = document.createElement('div');
     nav.className = 'bb-nav';
     nav.innerHTML = `
       <div class="bb-nav-left">
-        <span class="bb-nav-title">Section 1, Module 1: ${sess.currentSection}</span>
+        <span class="bb-nav-title">${sectionLabel}</span>
         <button class="bb-dir-btn" title="Read directions">Directions &#9662;</button>
       </div>
       <div class="bb-nav-center"></div>
@@ -100,7 +99,7 @@ export function renderTestSession(): HTMLElement {
     `;
     root.appendChild(nav);
 
-    /* Color bar */
+    /* Dotted Color bar */
     const bar = document.createElement('div');
     bar.className = 'bb-color-bar';
     root.appendChild(bar);
@@ -108,6 +107,33 @@ export function renderTestSession(): HTMLElement {
     /* ───── MAIN ───── */
     const main = document.createElement('div');
     main.className = 'bb-main';
+
+    // Detect if Math question has media (SVG or IMG) to show in split-screen layout
+    let hasMedia = false;
+    let leftHTML = '';
+    let rightHTML = q.questionText;
+
+    if (isMath) {
+      try {
+        const div = document.createElement('div');
+        div.innerHTML = q.questionText;
+        const media = div.querySelector('svg, img');
+        if (media) {
+          hasMedia = true;
+          // Strip fixed width/height attributes so the SVG/Image scales fluidly to fill the container
+          media.removeAttribute('width');
+          media.removeAttribute('height');
+          media.setAttribute('style', 'width: 100%; height: auto; max-width: 800px; max-height: 85vh; object-fit: contain;');
+          
+          // Put the graphic on the left
+          leftHTML = `<div class="bb-math-graphic-container" style="display:flex;align-items:center;justify-content:center;height:100%;padding:1.5rem;box-sizing:border-box;width:100%;">${media.outerHTML}</div>`;
+          media.remove();
+          rightHTML = div.innerHTML;
+        }
+      } catch (_) {}
+    } else {
+      leftHTML = q.passageText || '';
+    }
 
     const qColHTML = `
       <div class="bb-q-header">
@@ -119,30 +145,30 @@ export function renderTestSession(): HTMLElement {
           ${isSaved ? SVG.bookmarkFilled : SVG.bookmark}&nbsp;Bookmark
         </button>
         <div class="bb-q-sep"></div>
-        <button class="bb-q-tool-btn" id="elim-btn" title="Right-click any option to eliminate it">
+        <button class="bb-q-tool-btn ${elimMode ? 'active' : ''}" id="elim-btn" title="Toggle Eliminate Mode">
           <span style="text-decoration:line-through;font-weight:700;font-size:0.8rem;">ABC</span>&nbsp;Eliminate
         </button>
       </div>
 
       <div class="bb-q-meta">
-        <span class="bb-meta-pill">${q.domain}</span>
+        <span class="bb-meta-pill">${q.skill}</span>
         <span class="bb-meta-pill bb-meta-pill--diff">${diffLabel}</span>
-        <span class="bb-meta-id">ID: ${q.id}</span>
+        <span class="bb-meta-id">ID: ${displayId}</span>
       </div>
 
-      <p class="bb-q-text">${renderMath(q.questionText)}</p>
+      <div class="bb-q-text">${renderMath(rightHTML)}</div>
 
       <div class="bb-options" id="opts"></div>
       <div id="action"></div>
     `;
 
-    if (!isMath) {
-      /* Two-column for Reading & Writing */
+    if (!isMath || hasMedia) {
+      /* Two-column layout */
       const passCol = document.createElement('div');
       passCol.className = 'bb-passage-col';
       passCol.innerHTML = `
         <button class="bb-expand-btn" title="Expand passage">&#10548;</button>
-        <div class="bb-passage-text">${renderMath(q.passageText || '')}</div>
+        <div class="bb-passage-text">${isMath ? leftHTML : renderMath(leftHTML)}</div>
       `;
       main.appendChild(passCol);
 
@@ -191,19 +217,56 @@ export function renderTestSession(): HTMLElement {
 
         const div = document.createElement('div');
         div.className = cls;
-        div.innerHTML = `
-          <div class="bb-opt-circle"><span>${opt.id}</span></div>
-          <div class="bb-opt-text">${renderMath(opt.text)}</div>
-          ${isChecked && isCorrect ? `<div class="bb-opt-icon correct">${SVG.check}</div>` : ''}
-          ${isChecked && isWrong   ? `<div class="bb-opt-icon wrong">${SVG.cross}</div>`  : ''}
-        `;
 
+        if (isElim) {
+          div.innerHTML = `
+            <div class="bb-opt-circle"><span>${opt.id}</span></div>
+            <div class="bb-opt-text" style="text-decoration: line-through; opacity: 0.5;">${renderMath(opt.text)}</div>
+            <button class="bb-opt-undo-btn" style="background:none;border:none;color:#1a56db;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0.5rem;font-family:var(--font);margin-left:auto; z-index:10;">Undo</button>
+          `;
+          // Click on Undo un-eliminates
+          div.querySelector('.bb-opt-undo-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            store.toggleEliminateOption(q.id, opt.id);
+            draw();
+          });
+        } else {
+          div.innerHTML = `
+            <div class="bb-opt-circle"><span>${opt.id}</span></div>
+            <div class="bb-opt-text">${renderMath(opt.text)}</div>
+            ${isChecked && isCorrect ? `<div class="bb-opt-icon correct">${SVG.check}</div>` : ''}
+            ${isChecked && isWrong   ? `<div class="bb-opt-icon wrong">${SVG.cross}</div>`  : ''}
+            ${!isChecked && elimMode ? `
+              <button class="bb-opt-elim-btn" style="background:none;border:none;color:#ef4444;font-size:1.1rem;cursor:pointer;padding:0.5rem;display:flex;align-items:center;justify-content:center;margin-left:auto;border-radius:50%;width:30px;height:30px;border:1px solid #fecaca; z-index:10;" title="Eliminate option">
+                ${SVG.elimSvg}
+              </button>
+            ` : ''}
+          `;
+
+          // Clicking the eliminate button eliminates the option
+          if (elimMode && !isChecked) {
+            div.querySelector('.bb-opt-elim-btn')?.addEventListener('click', (e) => {
+              e.stopPropagation();
+              store.toggleEliminateOption(q.id, opt.id);
+              draw();
+            });
+          }
+        }
+
+        // Clicking the card selects it (unless eliminated or checked)
         div.addEventListener('click', () => {
-          if (!isElim && !isChecked) { store.answerQuestion(q.id, opt.id); draw(); }
+          if (!isElim && !isChecked) {
+            store.answerQuestion(q.id, opt.id);
+            draw();
+          }
         });
+
         div.addEventListener('contextmenu', e => {
           e.preventDefault();
-          if (!isChecked) { store.toggleEliminateOption(q.id, opt.id); draw(); }
+          if (!isChecked) {
+            store.toggleEliminateOption(q.id, opt.id);
+            draw();
+          }
         });
 
         optsEl.appendChild(div);
@@ -249,25 +312,20 @@ export function renderTestSession(): HTMLElement {
       actionEl.appendChild(fb);
     }
 
-    if (q.tags?.length) {
-      const tagsEl = document.createElement('div');
-      tagsEl.className = 'bb-tags';
-      q.tags.forEach(t => {
-        const span = document.createElement('span');
-        span.className = 'bb-tag';
-        span.textContent = `#${t}`;
-        tagsEl.appendChild(span);
-      });
-      actionEl.appendChild(tagsEl);
-    }
-
     /* ───── EVENTS ───── */
-    root.querySelector('#exit-btn')?.addEventListener('click', () => store.endSession());
+    root.querySelector('#exit-btn')?.addEventListener('click', () => {
+      store.endSession();
+    });
     root.querySelector('#flag-btn')?.addEventListener('click', () => { store.toggleFlag(q.id); draw(); });
     root.querySelector('#save-btn')?.addEventListener('click', () => { store.toggleSaveQuestion(q.id); draw(); });
     root.querySelector('#back-btn')?.addEventListener('click', () => { if (idx > 0) { idx--; draw(); } });
-    root.querySelector('#next-btn')?.addEventListener('click', () => { if (isLast) store.endSession(); else { idx++; draw(); } });
+    root.querySelector('#next-btn')?.addEventListener('click', () => { if (isLast) { store.endSession(); } else { idx++; draw(); } });
     root.querySelector('#nav-counter')?.addEventListener('click', () => { drawerOpen = !drawerOpen; draw(); });
+
+    root.querySelector('#elim-btn')?.addEventListener('click', () => {
+      elimMode = !elimMode;
+      draw();
+    });
 
     /* Desmos calculator */
     if (isMath) {
@@ -323,25 +381,28 @@ export function renderTestSession(): HTMLElement {
       const drawer = document.createElement('div');
       drawer.className = 'bb-nav-drawer';
 
-      /* Legend */
-      const answered = Object.keys(sess.answers).length;
-      const flagged  = sess.flagged.size;
-
       drawer.innerHTML = `
         <div class="bb-drawer-header">
-          <span class="bb-drawer-title">Questions</span>
+          <span class="bb-drawer-title">${sectionLabel} Module 1</span>
           <button class="bb-drawer-close" id="close-drawer-btn">&#10005;</button>
         </div>
         <div class="bb-drawer-legend">
-          <span class="bb-legend-item"><span class="bb-legend-dot answered"></span> Answered (${answered})</span>
-          <span class="bb-legend-item"><span class="bb-legend-dot flagged"></span> Flagged (${flagged})</span>
+          <span class="bb-legend-item">
+            <span style="color:#1a56db;display:flex;align-items:center;justify-content:center;">${SVG.targetSvg}</span> Current
+          </span>
+          <span class="bb-legend-item">
+            <span class="bb-legend-box unanswered"></span> Unanswered
+          </span>
+          <span class="bb-legend-item">
+            <span class="bb-legend-box flagged"></span> For Review
+          </span>
         </div>
         <div class="bb-drawer-grid" id="drawer-grid"></div>
+        <button class="bb-drawer-action-btn" id="close-drawer-btn2">Go to Review Page</button>
       `;
 
       root.appendChild(drawer);
 
-      /* Stop overlay click from triggering when clicking drawer itself */
       drawer.addEventListener('click', e => e.stopPropagation());
 
       const grid = drawer.querySelector('#drawer-grid')!;
@@ -350,14 +411,23 @@ export function renderTestSession(): HTMLElement {
         const isQAnswered  = !!sess.answers[qItem.id];
         const isQFlagged   = sess.flagged.has(qItem.id);
 
+        const cell = document.createElement('div');
+        cell.className = 'bb-drawer-cell';
+
+        // Target marker above current question
+        const marker = document.createElement('span');
+        marker.className = 'bb-drawer-curr-marker';
+        if (isCurrent) {
+          marker.innerHTML = SVG.targetSvg;
+        }
+        cell.appendChild(marker);
+
         const btn = document.createElement('button');
         btn.className = [
           'bb-drawer-item',
+          isQAnswered ? 'bb-drawer-item--answered' : 'bb-drawer-item--unanswered',
           isCurrent   ? 'bb-drawer-item--current'  : '',
-          isQAnswered ? 'bb-drawer-item--answered'  : '',
-          isQFlagged  ? 'bb-drawer-item--flagged'   : '',
         ].filter(Boolean).join(' ');
-        btn.setAttribute('title', `Question ${qIdx + 1}${isQFlagged ? ' — Flagged' : ''}${isQAnswered ? ' — Answered' : ''}`);
         btn.textContent = String(qIdx + 1);
 
         if (isQFlagged) {
@@ -372,14 +442,18 @@ export function renderTestSession(): HTMLElement {
           draw();
         });
 
-        grid.appendChild(btn);
+        cell.appendChild(btn);
+        grid.appendChild(cell);
       });
 
-      drawer.querySelector('#close-drawer-btn')?.addEventListener('click', () => {
-        drawerOpen = false;
-        draw();
-      });
+      drawer.querySelector('#close-drawer-btn')?.addEventListener('click', () => { drawerOpen = false; draw(); });
+      drawer.querySelector('#close-drawer-btn2')?.addEventListener('click', () => { drawerOpen = false; draw(); });
     }
+
+    // Trigger MathJax typeset to compile LaTeX math formulas
+    setTimeout(() => {
+      (window as any).MathJax?.typesetPromise?.();
+    }, 10);
   }
 
   draw();
