@@ -681,7 +681,7 @@
   window.reprocess = function () {
     const before = window.__CB_QUESTIONS__.size;
     window.__CB_METADATA__ = new Map(); // Clear and rebuild metadata!
-    window.__CB_RAW_RESPONSES__.forEach(r => processResponse(r.url, r.data));
+    window.__CB_RAW_RESPONSES__.forEach(r => processResponse(r.url, r.data, r.requestMeta));
     doFiberScan();
     console.log(`Reprocessed ${window.__CB_RAW_RESPONSES__.length} responses. Questions: ${before} → ${window.__CB_QUESTIONS__.size}`);
   };
