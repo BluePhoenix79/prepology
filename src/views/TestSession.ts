@@ -6,6 +6,13 @@ let currentQuestionIndex = 0;
 let isDrawerOpen = false;
 let isElimMode = false;
 
+// Persistent timer states across renders
+let isTimerPaused = false;
+let isTimerHidden = false;
+let questionAccumulatedTime = 0;
+let lastTimerTick = Date.now();
+let lastRenderedIdx = -1;
+
 /* ── Simple inline-math renderer: *text* → <em>, ^n → superscript, basic fractions ── */
 function renderMath(text: string): string {
   if (!text) return '';
@@ -29,7 +36,8 @@ const SVG = {
   check:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
   cross:   `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
   elimSvg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.65;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
-  targetSvg: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg>`
+  targetSvg: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="2"/></svg>`,
+  ref: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`
 };
 
 export function renderTestSession(): HTMLElement {
@@ -71,13 +79,50 @@ export function renderTestSession(): HTMLElement {
   let idx = currentQuestionIndex;
   let drawerOpen = isDrawerOpen;
   let elimMode = isElimMode;
+  let annotateMode = false;
+  // Per-question timer elements
+  let questionTimerEl: HTMLElement | null = null;
+  let timerInterval: ReturnType<typeof setInterval> | null = null;
+
+  function startTimer() {
+    lastTimerTick = Date.now();
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (isTimerPaused) {
+        lastTimerTick = Date.now(); // keep resetting tick during pause
+        return;
+      }
+      const now = Date.now();
+      questionAccumulatedTime += Math.floor((now - lastTimerTick) / 1000);
+      lastTimerTick = now;
+      
+      if (!questionTimerEl) return;
+      if (isTimerHidden) {
+        questionTimerEl.textContent = '—:—';
+      } else {
+        const m = Math.floor(questionAccumulatedTime / 60).toString().padStart(2, '0');
+        const s = (questionAccumulatedTime % 60).toString().padStart(2, '0');
+        questionTimerEl.textContent = `${m}:${s}`;
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  }
 
   function draw() {
     currentQuestionIndex = idx;
     isDrawerOpen = drawerOpen;
     isElimMode = elimMode;
-
+    stopTimer();
     root.innerHTML = '';
+
+    if (lastRenderedIdx !== idx) {
+      lastRenderedIdx = idx;
+      questionAccumulatedTime = 0;
+      lastTimerTick = Date.now();
+    }
 
     const q      = questions[idx];
     const sess   = store.getState().session!;
@@ -93,7 +138,7 @@ export function renderTestSession(): HTMLElement {
     const diffLabel  = q.difficulty === 1 ? 'Easy' : q.difficulty === 2 ? 'Medium' : 'Hard';
     const displayId  = q.id.replace(/_(read|math)$/i, '');
 
-    const sectionLabel = q.section === 'Math' ? 'Math' : 'R+W';
+    const sectionLabel = q.section === 'Math' ? 'Section 2: Math' : 'Section 1: Reading and Writing';
 
     /* ───── NAV BAR ───── */
     const nav = document.createElement('div');
@@ -102,14 +147,39 @@ export function renderTestSession(): HTMLElement {
       <div class="bb-nav-left">
         <span class="bb-nav-title">${sectionLabel}</span>
         <button class="bb-dir-btn" title="Read directions">Directions &#9662;</button>
+        ${(q.id.includes('-DC') || (q as any)._raw !== undefined) ? `
+          <div class="bb-difficulty-edit-container" style="position: relative;">
+            <button class="bb-set-diff-btn" id="set-diff-btn" title="Set Difficulty" style="display:flex;align-items:center;gap:0.3rem;font-size:0.8125rem;font-weight:500;color:var(--c-blue, #1a56db);background:transparent;border:1px solid #1a56db;border-radius:4px;cursor:pointer;padding:0.25rem 0.5rem;">
+              Set Difficulty: ${diffLabel} &#9662;
+            </button>
+            <div id="diff-dropdown" class="bb-diff-dropdown" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 4px; background: white; border: 1px solid #e4e4e4; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10001; min-width: 100px;">
+              <button class="diff-opt-btn" data-val="1" style="display: block; width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: none; border: none; font-size: 0.8125rem; cursor: pointer; color: #333; font-family: var(--font);">Easy</button>
+              <button class="diff-opt-btn" data-val="2" style="display: block; width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: none; border: none; font-size: 0.8125rem; cursor: pointer; color: #333; font-family: var(--font); border-top: 1px solid #f3f4f6;">Medium</button>
+              <button class="diff-opt-btn" data-val="3" style="display: block; width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: none; border: none; font-size: 0.8125rem; cursor: pointer; color: #333; font-family: var(--font); border-top: 1px solid #f3f4f6;">Hard</button>
+            </div>
+          </div>
+        ` : ''}
       </div>
-      <div class="bb-nav-center"></div>
+      <div class="bb-nav-center" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 2px; height: 100%;">
+        <div id="q-timer" style="font-size: 1.15rem; font-weight: 700; color: #111; font-family: monospace; line-height: 1.1;">00:00</div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <button id="pause-timer-btn" style="width: 20px; height: 20px; border-radius: 50%; border: 1px solid #d1d5db; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;" title="${isTimerPaused ? 'Resume' : 'Pause'}">
+            ${isTimerPaused 
+              ? `<svg width="8" height="8" viewBox="0 0 24 24" fill="#4b5563" stroke="#4b5563" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
+              : `<svg width="8" height="8" viewBox="0 0 24 24" fill="#4b5563" stroke="#4b5563" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
+            }
+          </button>
+          <button id="hide-timer-btn" style="padding: 1px 10px; border-radius: 9999px; border: 1px solid #d1d5db; background: white; color: #1a56db; font-size: 0.7rem; font-weight: 500; cursor: pointer;">
+            ${isTimerHidden ? 'Show' : 'Hide'}
+          </button>
+        </div>
+      </div>
       <div class="bb-nav-right">
-        ${isMath ? `<button class="bb-calc-btn" id="calc-btn">${SVG.calc}&nbsp;Calculator</button>` : ''}
-        <div class="bb-tool" title="Annotate">
+        ${isMath ? `<button class="bb-calc-btn" id="calc-btn">${SVG.calc}&nbsp;Calculator</button><button class="bb-calc-btn" id="ref-btn" style="margin-right: 0.5rem;">${SVG.ref}&nbsp;Reference</button>` : ''}
+        <button class="bb-tool bb-annotate-btn ${annotateMode ? 'active' : ''}" id="annotate-btn" title="Highlight text (select text while active)">
           <span class="bb-tool-icon">${SVG.pencil}</span>
           <span class="bb-tool-label">Annotate</span>
-        </div>
+        </button>
         <button class="bb-exit" id="exit-btn">Exit Practice</button>
       </div>
     `;
@@ -123,6 +193,7 @@ export function renderTestSession(): HTMLElement {
     /* ───── MAIN ───── */
     const main = document.createElement('div');
     main.className = 'bb-main';
+    main.style.position = 'relative';
 
     // Detect if Math question has media (SVG or IMG) to show in split-screen layout
     let hasMedia = false;
@@ -133,7 +204,8 @@ export function renderTestSession(): HTMLElement {
       try {
         const div = document.createElement('div');
         div.innerHTML = q.questionText;
-        const media = div.querySelector('svg, img');
+        // Avoid extracting inline formula images (which have .math-img or role='math')
+        const media = div.querySelector('svg, img:not(.math-img):not([role="math"])') as HTMLElement | null;
         if (media) {
           hasMedia = true;
           // Strip fixed width/height attributes so the SVG/Image scales fluidly to fill the container
@@ -141,10 +213,20 @@ export function renderTestSession(): HTMLElement {
           media.removeAttribute('height');
           media.setAttribute('style', 'width: 100%; height: auto; max-width: 800px; max-height: 85vh; object-fit: contain;');
           
-          // Put the graphic on the left
-          leftHTML = `<div class="bb-math-graphic-container" style="display:flex;align-items:center;justify-content:center;height:100%;padding:1.5rem;box-sizing:border-box;width:100%;">${media.outerHTML}</div>`;
-          media.remove();
+          // Check if parent is a wrapper container (figure, standalone_image, image)
+          const wrapper = media.parentElement;
+          if (wrapper && (wrapper.tagName === 'FIGURE' || wrapper.className.includes('standalone_image') || wrapper.className.includes('image'))) {
+            leftHTML = `<div class="bb-math-graphic-container" style="display:flex;align-items:center;justify-content:center;height:100%;padding:1.5rem;box-sizing:border-box;width:100%;">${media.outerHTML}</div>`;
+            wrapper.remove();
+          } else {
+            leftHTML = `<div class="bb-math-graphic-container" style="display:flex;align-items:center;justify-content:center;height:100%;padding:1.5rem;box-sizing:border-box;width:100%;">${media.outerHTML}</div>`;
+            media.remove();
+          }
           rightHTML = div.innerHTML;
+        } else if (q.passageText) {
+          // Pattern B stimulus question: passageText has the equation/context, questionText has the prompt
+          hasMedia = true;
+          leftHTML = q.passageText;
         }
       } catch (_) {}
     } else {
@@ -184,7 +266,7 @@ export function renderTestSession(): HTMLElement {
       passCol.className = 'bb-passage-col';
       passCol.innerHTML = `
         <button class="bb-expand-btn" title="Expand passage">&#10548;</button>
-        <div class="bb-passage-text">${isMath ? leftHTML : renderMath(leftHTML)}</div>
+        <div class="bb-passage-text">${isMath ? renderMath(leftHTML) : renderMath(leftHTML)}</div>
       `;
       main.appendChild(passCol);
 
@@ -210,10 +292,35 @@ export function renderTestSession(): HTMLElement {
     footer.className = 'bb-footer';
     footer.innerHTML = `
       <button class="bb-footer-back" id="back-btn" ${idx === 0 ? 'disabled' : ''}>Back</button>
-      <button class="bb-q-counter ${drawerOpen ? 'active' : ''}" id="nav-counter">Question ${idx + 1} of ${questions.length} &and;</button>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <button class="bb-q-counter ${drawerOpen ? 'active' : ''}" id="nav-counter">Question ${idx + 1} of ${questions.length} &and;</button>
+      </div>
       <button class="bb-next-btn" id="next-btn">${isLast ? 'Finish' : 'Next'}</button>
     `;
     root.appendChild(footer);
+    questionTimerEl = nav.querySelector('#q-timer');
+    startTimer();
+
+    // Paused overlay cover
+    if (isTimerPaused) {
+      const pausedOverlay = document.createElement('div');
+      pausedOverlay.className = 'paused-overlay';
+      pausedOverlay.innerHTML = `
+        <div class="paused-card">
+          <h2>Practice Paused</h2>
+          <p>Your progress is saved. Click below to resume.</p>
+          <button id="resume-btn" class="bb-next-btn" style="margin-top: 1rem; width: 100%; border-radius: 8px;">Resume Practice</button>
+        </div>
+      `;
+      main.appendChild(pausedOverlay);
+
+      pausedOverlay.querySelector('#resume-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isTimerPaused = false;
+        lastTimerTick = Date.now();
+        draw();
+      });
+    }
 
     /* ───── OPTIONS ───── */
     const optsEl = root.querySelector('#opts')!;
@@ -317,7 +424,7 @@ export function renderTestSession(): HTMLElement {
       const btn = document.createElement('button');
       btn.className = 'bb-check-btn';
       btn.textContent = 'Check Answer';
-      btn.addEventListener('click', () => { store.checkAnswer(q.id); draw(); });
+      btn.addEventListener('click', () => { store.checkAnswer(q.id, questionAccumulatedTime); draw(); });
       actionEl.appendChild(btn);
     }
 
@@ -334,16 +441,118 @@ export function renderTestSession(): HTMLElement {
     }
 
     /* ───── EVENTS ───── */
+    // Difficulty edit controls
+    if (q.id.includes('-DC') || (q as any)._raw !== undefined) {
+      const setDiffBtn = nav.querySelector('#set-diff-btn');
+      const diffDropdown = nav.querySelector('#diff-dropdown');
+      if (setDiffBtn && diffDropdown) {
+        setDiffBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          diffDropdown.classList.toggle('show');
+        });
+
+        // Close when clicking outside
+        const closeDropdown = () => {
+          diffDropdown.classList.remove('show');
+          document.removeEventListener('click', closeDropdown);
+        };
+        document.addEventListener('click', closeDropdown);
+
+        diffDropdown.querySelectorAll('.diff-opt-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const val = parseInt((e.currentTarget as HTMLElement).dataset.val || '2', 10);
+            store.setQuestionDifficulty(q.id, val as any);
+          });
+        });
+      }
+    }
+
+    // Timer controls
+    const pauseBtn = nav.querySelector('#pause-timer-btn');
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isTimerPaused = !isTimerPaused;
+        if (!isTimerPaused) {
+          lastTimerTick = Date.now();
+        }
+        draw();
+      });
+    }
+
+    const hideBtn = nav.querySelector('#hide-timer-btn');
+    if (hideBtn) {
+      hideBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isTimerHidden = !isTimerHidden;
+        if (questionTimerEl) {
+          if (isTimerHidden) {
+            questionTimerEl.textContent = '—:—';
+          } else {
+            const m = Math.floor(questionAccumulatedTime / 60).toString().padStart(2, '0');
+            const s = (questionAccumulatedTime % 60).toString().padStart(2, '0');
+            questionTimerEl.textContent = `${m}:${s}`;
+          }
+        }
+        hideBtn.textContent = isTimerHidden ? 'Show' : 'Hide';
+      });
+    }
+
     root.querySelector('#exit-btn')?.addEventListener('click', () => {
       document.getElementById('desmos-modal')?.remove();
       document.body.classList.remove('calc-docked');
+      stopTimer();
       store.endSession();
     });
     root.querySelector('#flag-btn')?.addEventListener('click', () => { store.toggleFlag(q.id); draw(); });
     root.querySelector('#save-btn')?.addEventListener('click', () => { store.toggleSaveQuestion(q.id); draw(); });
     root.querySelector('#back-btn')?.addEventListener('click', () => { if (idx > 0) { idx--; draw(); } });
-    root.querySelector('#next-btn')?.addEventListener('click', () => { if (isLast) { store.endSession(); } else { idx++; draw(); } });
+    root.querySelector('#next-btn')?.addEventListener('click', () => { if (isLast) { stopTimer(); store.endSession(); } else { idx++; draw(); } });
     root.querySelector('#nav-counter')?.addEventListener('click', () => { drawerOpen = !drawerOpen; draw(); });
+
+    /* Annotate: toggle highlight mode and handle text selection */
+    root.querySelector('#annotate-btn')?.addEventListener('click', () => {
+      annotateMode = !annotateMode;
+      const btn = root.querySelector('#annotate-btn') as HTMLElement | null;
+      if (btn) btn.classList.toggle('active', annotateMode);
+      document.body.style.cursor = annotateMode ? 'text' : '';
+      if (!annotateMode) {
+        // Show toast
+        const t = document.createElement('div');
+        t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:0.4rem 1rem;border-radius:999px;font-size:0.8rem;z-index:9999;opacity:1;transition:opacity 0.4s;pointer-events:none;';
+        t.textContent = 'Highlight mode off';
+        document.body.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 1200);
+      }
+    });
+
+    /* Highlight on mouseup when annotate mode is on */
+    root.addEventListener('mouseup', () => {
+      if (!annotateMode) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      // Only highlight inside the passage or question columns
+      const container = root.querySelector('.bb-passage-text, .bb-q-text, .bb-single-inner');
+      if (!container || !container.contains(range.commonAncestorContainer)) return;
+      const mark = document.createElement('mark');
+      mark.style.cssText = 'background:#fef08a;border-radius:2px;cursor:pointer;';
+      mark.title = 'Click to remove highlight';
+      mark.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const parent = mark.parentNode;
+        if (parent) { parent.replaceChild(document.createTextNode(mark.textContent || ''), mark); parent.normalize(); }
+      });
+      try { range.surroundContents(mark); } catch (_) {
+        // If selection spans multiple nodes, use extractContents
+        const frag = range.extractContents();
+        mark.appendChild(frag);
+        range.insertNode(mark);
+      }
+      sel.removeAllRanges();
+    });
+
 
     root.querySelector('#elim-btn')?.addEventListener('click', () => {
       elimMode = !elimMode;
@@ -446,6 +655,207 @@ export function renderTestSession(): HTMLElement {
           modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
         }
       });
+      
+      root.querySelector('#ref-btn')?.addEventListener('click', () => {
+        let modal = document.getElementById('reference-modal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'reference-modal';
+          Object.assign(modal.style, {
+            position: 'fixed', top: '70px', right: '480px',
+            width: '450px', height: '520px',
+            background: '#fff', border: '1px solid #cbd5e1',
+            borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+            zIndex: '9999', display: 'flex', flexDirection: 'column',
+            overflow: 'hidden', resize: 'both',
+          });
+          modal.innerHTML = `
+            <div id="rfh" style="background:#1e293b;color:#fff;padding:0.625rem 1rem;cursor:move;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0;flex-shrink:0;user-select:none;">
+              <span style="font-size:0.875rem;font-weight:600;">Reference</span>
+              <button id="rfc" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:1rem;line-height:1;">&#10005;</button>
+            </div>
+            <div style="flex:1; overflow-y:auto; padding:1.25rem; font-family:var(--font); font-size:0.8rem; color:#1e293b; line-height:1.4; background:#f8fafc;">
+              <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                
+                <!-- Circle -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <circle cx="50" cy="50" r="35" stroke="#334155" stroke-width="2" fill="none" />
+                    <line x1="50" y1="50" x2="85" y2="50" stroke="#64748b" stroke-width="1.5" />
+                    <text x="65" y="42" font-size="14" font-style="italic" fill="#0f172a">r</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Circle</div>
+                  <div style="font-size:0.75rem; color:#475569;">$A = \\pi r^2$</div>
+                  <div style="font-size:0.75rem; color:#475569;">$C = 2\\pi r$</div>
+                </div>
+
+                <!-- Rectangle -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="65" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <rect x="15" y="25" width="70" height="50" stroke="#334155" stroke-width="2" fill="none" />
+                    <text x="45" y="90" font-size="14" font-style="italic" fill="#0f172a">l</text>
+                    <text x="90" y="55" font-size="14" font-style="italic" fill="#0f172a">w</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Rectangle</div>
+                  <div style="font-size:0.75rem; color:#475569;">$A = l w$</div>
+                </div>
+
+                <!-- Triangle -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <polygon points="10,80 90,80 60,20" stroke="#334155" stroke-width="2" fill="none" />
+                    <line x1="60" y1="20" x2="60" y2="80" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1.5" />
+                    <polyline points="55,80 55,75 60,75" stroke="#64748b" stroke-width="1" fill="none" />
+                    <text x="65" y="50" font-size="14" font-style="italic" fill="#0f172a">h</text>
+                    <text x="48" y="95" font-size="14" font-style="italic" fill="#0f172a">b</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Triangle</div>
+                  <div style="font-size:0.75rem; color:#475569;">$A = \\frac{1}{2} b h$</div>
+                </div>
+
+                <!-- Pythagorean Theorem -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <polygon points="20,80 80,80 20,20" stroke="#334155" stroke-width="2" fill="none" />
+                    <rect x="20" y="72" width="8" height="8" stroke="#64748b" stroke-width="1.5" fill="none" />
+                    <text x="8" y="55" font-size="14" font-style="italic" fill="#0f172a">a</text>
+                    <text x="48" y="95" font-size="14" font-style="italic" fill="#0f172a">b</text>
+                    <text x="55" y="45" font-size="14" font-style="italic" fill="#0f172a">c</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Right Triangle</div>
+                  <div style="font-size:0.75rem; color:#475569;">$c^2 = a^2 + b^2$</div>
+                </div>
+
+                <!-- Special Right Triangle 1 -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); grid-column: span 2;">
+                  <div style="display:flex; justify-content:space-around; align-items:center;">
+                    <div>
+                      <svg width="100" height="75" viewBox="0 0 120 90" style="display:block;">
+                        <polygon points="20,80 100,80 20,20" stroke="#334155" stroke-width="2" fill="none" />
+                        <rect x="20" y="72" width="8" height="8" stroke="#64748b" stroke-width="1.5" fill="none" />
+                        <text x="8" y="55" font-size="12" fill="#0f172a">x</text>
+                        <text x="50" y="94" font-size="12" fill="#0f172a">x\\sqrt{3}</text>
+                        <text x="65" y="45" font-size="12" fill="#0f172a">2x</text>
+                        <text x="32" y="75" font-size="10" fill="#64748b">60°</text>
+                        <text x="23" y="38" font-size="10" fill="#64748b">30°</text>
+                      </svg>
+                    </div>
+                    <div>
+                      <svg width="80" height="80" viewBox="0 0 100 100" style="display:block;">
+                        <polygon points="20,80 80,80 20,20" stroke="#334155" stroke-width="2" fill="none" />
+                        <rect x="20" y="72" width="8" height="8" stroke="#64748b" stroke-width="1.5" fill="none" />
+                        <text x="8" y="55" font-size="12" fill="#0f172a">x</text>
+                        <text x="48" y="95" font-size="12" fill="#0f172a">x</text>
+                        <text x="52" y="45" font-size="12" fill="#0f172a">x\\sqrt{2}</text>
+                        <text x="32" y="75" font-size="10" fill="#64748b">45°</text>
+                        <text x="23" y="38" font-size="10" fill="#64748b">45°</text>
+                      </svg>
+                    </div>
+                  </div>
+                  <div style="font-weight:700; font-size:0.85rem; margin-top:0.5rem; color:#0f172a;">Special Right Triangles</div>
+                </div>
+
+                <!-- Cylinder -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <ellipse cx="50" cy="25" rx="25" ry="8" stroke="#334155" stroke-width="2" fill="none" />
+                    <ellipse cx="50" cy="75" rx="25" ry="8" stroke="#334155" stroke-width="2" fill="none" />
+                    <line x1="25" y1="25" x2="25" y2="75" stroke="#334155" stroke-width="2" />
+                    <line x1="75" y1="25" x2="75" y2="75" stroke="#334155" stroke-width="2" />
+                    <line x1="50" y1="25" x2="75" y2="25" stroke="#64748b" stroke-width="1.5" />
+                    <line x1="50" y1="25" x2="50" y2="75" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1.5" />
+                    <text x="60" y="21" font-size="12" font-style="italic" fill="#0f172a">r</text>
+                    <text x="42" y="55" font-size="12" font-style="italic" fill="#0f172a">h</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Cylinder</div>
+                  <div style="font-size:0.75rem; color:#475569;">$V = \\pi r^2 h$</div>
+                </div>
+
+                <!-- Cone -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <ellipse cx="50" cy="75" rx="25" ry="8" stroke="#334155" stroke-width="2" fill="none" />
+                    <line x1="25" y1="75" x2="50" y2="20" stroke="#334155" stroke-width="2" />
+                    <line x1="75" y1="75" x2="50" y2="20" stroke="#334155" stroke-width="2" />
+                    <line x1="50" y1="75" x2="75" y2="75" stroke="#64748b" stroke-width="1.5" />
+                    <line x1="50" y1="20" x2="50" y2="75" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1.5" />
+                    <text x="60" y="71" font-size="12" font-style="italic" fill="#0f172a">r</text>
+                    <text x="42" y="50" font-size="12" font-style="italic" fill="#0f172a">h</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Cone</div>
+                  <div style="font-size:0.75rem; color:#475569;">$V = \\frac{1}{3} \\pi r^2 h$</div>
+                </div>
+
+                <!-- Sphere -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <circle cx="50" cy="50" r="30" stroke="#334155" stroke-width="2" fill="none" />
+                    <ellipse cx="50" cy="50" rx="30" ry="10" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1" fill="none" />
+                    <line x1="50" y1="50" x2="80" y2="50" stroke="#64748b" stroke-width="1.5" />
+                    <text x="65" y="42" font-size="12" font-style="italic" fill="#0f172a">r</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Sphere</div>
+                  <div style="font-size:0.75rem; color:#475569;">$V = \\frac{4}{3} \\pi r^3$</div>
+                </div>
+
+                <!-- Rectangular Prism -->
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
+                    <rect x="15" y="35" width="50" height="40" stroke="#334155" stroke-width="2" fill="none" />
+                    <rect x="35" y="15" width="50" height="40" stroke="#334155" stroke-width="1.5" stroke-dasharray="2,2" fill="none" />
+                    <line x1="15" y1="35" x2="35" y2="15" stroke="#334155" stroke-width="2" />
+                    <line x1="65" y1="35" x2="85" y2="15" stroke="#334155" stroke-width="2" />
+                    <line x1="15" y1="75" x2="35" y2="55" stroke="#334155" stroke-width="1.5" stroke-dasharray="2,2" />
+                    <line x1="65" y1="75" x2="85" y2="55" stroke="#334155" stroke-width="2" />
+                    <text x="40" y="88" font-size="12" font-style="italic" fill="#0f172a">l</text>
+                    <text x="75" y="70" font-size="12" font-style="italic" fill="#0f172a">w</text>
+                    <text x="88" y="38" font-size="12" font-style="italic" fill="#0f172a">h</text>
+                  </svg>
+                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Rectangular Prism</div>
+                  <div style="font-size:0.75rem; color:#475569;">$V = l w h$</div>
+                </div>
+
+              </div>
+
+              <div style="margin-top:1.25rem; padding:0.75rem; background:#f1f5f9; border-radius:8px; border:1px solid #e2e8f0; font-size:0.75rem; color:#475569;">
+                <div style="font-weight:700; margin-bottom:0.25rem; color:#0f172a;">Additional Info:</div>
+                • The number of degrees of arc in a circle is 360.<br>
+                • The number of radians of arc in a circle is $2\\pi$.<br>
+                • The sum of the measures in degrees of the angles of a triangle is 180.
+              </div>
+            </div>
+          `;
+          document.body.appendChild(modal);
+
+          // Dragging code
+          const rfh = document.getElementById('rfh')!;
+          let ox = 0, oy = 0;
+          const onMouseMove = (e: MouseEvent) => {
+            modal!.style.left = `${e.clientX - ox}px`;
+            modal!.style.top = `${e.clientY - oy}px`;
+            modal!.style.right = 'unset';
+          };
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+          rfh.addEventListener('mousedown', e => {
+            ox = e.clientX - modal!.offsetLeft;
+            oy = e.clientY - modal!.offsetTop;
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+          });
+
+          document.getElementById('rfc')?.addEventListener('click', () => {
+            modal!.remove();
+          });
+
+          // Render MathJax LaTeX inside modal
+          (window as any).MathJax?.typesetPromise?.([modal]);
+        } else {
+          modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+        }
+      });
     }
 
     /* ───── QUESTION NAVIGATOR DRAWER ───── */
@@ -460,7 +870,7 @@ export function renderTestSession(): HTMLElement {
 
       drawer.innerHTML = `
         <div class="bb-drawer-header">
-          <span class="bb-drawer-title">${sectionLabel} Module 1</span>
+          <span class="bb-drawer-title">${sectionLabel}</span>
           <button class="bb-drawer-close" id="close-drawer-btn">&#10005;</button>
         </div>
         <div class="bb-drawer-legend">
@@ -537,6 +947,8 @@ export function renderTestSession(): HTMLElement {
     if (store.getState().currentView !== 'test') {
       document.getElementById('desmos-modal')?.remove();
       document.body.classList.remove('calc-docked');
+      document.body.style.cursor = '';
+      stopTimer();
       window.removeEventListener('keydown', handleKeyDown);
       return;
     }
@@ -574,11 +986,10 @@ export function renderTestSession(): HTMLElement {
       }
     }
 
-    // Enter actions
     if (e.key === 'Enter') {
       e.preventDefault();
       if (selected && !isChecked) {
-        store.checkAnswer(q.id);
+        store.checkAnswer(q.id, questionAccumulatedTime);
         draw();
       } else if (isChecked) {
         const isLast = idx === questions.length - 1;

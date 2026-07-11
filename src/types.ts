@@ -46,6 +46,16 @@ export interface UserStats {
   savedQuestions?: string[]; // Array of bookmarked questionIds
   streak?: number; // Daily practice streak
   lastActiveDate?: string; // YYYY-MM-DD
+  solveHistory?: Array<{
+    id: string;
+    timestamp: number;
+    correct: boolean;
+    timeSpent: number; // in seconds
+    difficulty: Difficulty;
+    section: Section;
+    domain: string;
+    skill: string;
+  }>;
 }
 
 export interface AppState {
@@ -53,4 +63,5 @@ export interface AppState {
   session: TestSession | null;
   stats: UserStats;
   questionBank: Question[];
+  difficultyOverrides?: Record<string, Difficulty>;
 }

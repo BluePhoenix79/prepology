@@ -10,7 +10,7 @@ import { renderAnalytics } from './views/Analytics';
 
 // Initialize question bank — always clear any stale session from localStorage
 // so that type changes don't break older stored sessions.
-const savedRaw = localStorage.getItem('preplogy_state');
+const savedRaw = localStorage.getItem('prepology_state') || localStorage.getItem('preplogy_state');
 if (savedRaw) {
   try {
     const saved = JSON.parse(savedRaw);
@@ -18,9 +18,12 @@ if (savedRaw) {
     if (saved.session) {
       saved.session = null;
       saved.currentView = 'dashboard';
-      localStorage.setItem('preplogy_state', JSON.stringify(saved));
+      localStorage.setItem('prepology_state', JSON.stringify(saved));
     }
-  } catch { localStorage.removeItem('preplogy_state'); }
+  } catch {
+    localStorage.removeItem('prepology_state');
+    localStorage.removeItem('preplogy_state');
+  }
 }
 
 store.setQuestionBank(questionsData as any);
@@ -40,9 +43,10 @@ function render() {
     const sidebar = document.createElement('div');
     sidebar.className = 'app-sidebar';
     sidebar.innerHTML = `
-      <div class="sidebar-brand">
-        <div class="sidebar-brand-text">
-          <h2>Preplogy</h2>
+      <div class="sidebar-brand" style="display:flex; flex-direction:column; align-items:center; text-align:center; padding: 2rem 1rem 1rem 1rem; gap: 0.75rem;">
+        <img src="/prepology_logo.png" alt="Prepology Logo" style="width:64px; height:64px; object-fit:contain; border-radius:12px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.25));" />
+        <div class="sidebar-brand-text" style="display:flex; flex-direction:column; align-items:center; gap:0.25rem;">
+          <h2 style="font-size:1.35rem; font-weight:800; color:var(--c-text); margin:0;">Prepology</h2>
           <span class="sidebar-sat-pill">SAT</span>
         </div>
       </div>

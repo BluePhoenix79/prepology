@@ -365,6 +365,10 @@ select:focus, input:focus {
 .bb-tool:hover { background: #f0f0f0; }
 .bb-tool-icon { font-size: 1.0625rem; line-height: 1; }
 .bb-tool-label { font-size: 0.6875rem; font-weight: 500; color: #555; white-space: nowrap; }
+/* Annotate active state */
+.bb-annotate-btn.active { background: #fef9c3; border: 1.5px solid #facc15; }
+.bb-annotate-btn.active .bb-tool-label { color: #92400e; font-weight: 700; }
+.bb-annotate-btn.active .bb-tool-icon { filter: drop-shadow(0 0 3px #facc15); }
 
 /* Calculator button (slightly styled differently) */
 .bb-calc-btn {
@@ -1707,4 +1711,110 @@ body.calc-docked #desmos-modal {
 }
 #desmos-modal {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom Difficulty Button & Dropdown */
+.bb-set-diff-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1a56db;
+  background: rgba(26, 86, 219, 0.05);
+  border: 1px solid rgba(26, 86, 219, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  transition: all 0.2s ease;
+  font-family: var(--font);
+}
+.bb-set-diff-btn:hover {
+  background: rgba(26, 86, 219, 0.1);
+  border-color: rgba(26, 86, 219, 0.4);
+}
+.bb-diff-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  z-index: 10001;
+  min-width: 110px;
+  padding: 4px;
+}
+.bb-diff-dropdown.show {
+  display: block;
+}
+.diff-opt-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  border-radius: 6px;
+  font-family: var(--font);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.diff-opt-btn:hover {
+  background: #f3f4f6;
+  color: #1a56db;
+}
+
+/* Practice Paused Overlay Styles */
+.paused-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.paused-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+  animation: scaleUp 0.25s ease-out;
+}
+@keyframes scaleUp {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.paused-card h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+.paused-card p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+/* Heatmap & chart style updates */
+.weekly-bar-stacked:hover {
+  filter: brightness(0.95);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
 }

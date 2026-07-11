@@ -1,6 +1,35 @@
 import type { AppState, Question, TestSession } from '../types';
 import { calculatePredictedScore, updateTopicMastery } from '../utils/scoring';
 
+function parseFractionOrDecimal(val: string): number {
+  const s = val.trim();
+  if (s.includes('/')) {
+    const parts = s.split('/');
+    if (parts.length === 2) {
+      const num = Number(parts[0]);
+      const den = Number(parts[1]);
+      if (!isNaN(num) && !isNaN(den) && den !== 0) {
+        return num / den;
+      }
+    }
+  }
+  return Number(s);
+}
+
+function areAnswersEquivalent(ans1: string, ans2: string): boolean {
+  if (!ans1 || !ans2) return false;
+  const a1 = ans1.trim().toUpperCase();
+  const a2 = ans2.trim().toUpperCase();
+  if (a1 === a2) return true;
+  
+  const v1 = parseFractionOrDecimal(a1);
+  const v2 = parseFractionOrDecimal(a2);
+  if (!isNaN(v1) && !isNaN(v2)) {
+    return Math.abs(v1 - v2) < 1e-6;
+  }
+  return false;
+}
+
 type Listener = (state: AppState) => void;
 
 const defaultState: AppState = {
@@ -15,13 +44,15 @@ const defaultState: AppState = {
     topicMastery: {},
     solved: {},
     savedQuestions: [],
-    streak: 0
+    streak: 0,
+    solveHistory: []
   },
-  questionBank: []
+  questionBank: [],
+  difficultyOverrides: {}
 };
 
 function loadState(): AppState {
-  const saved = localStorage.getItem('preplogy_state');
+  const saved = localStorage.getItem('prepology_state') || localStorage.getItem('preplogy_state');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -30,15 +61,31 @@ function loadState(): AppState {
       parsed.session = null;
       parsed.currentView = 'dashboard';
       if (parsed.stats) {
+        // Self-repair: Clear out any generated mock data to start with empty real stats
+        if (parsed.stats.solveHistory && parsed.stats.solveHistory.length > 0) {
+          parsed.stats.solveHistory = [];
+          parsed.stats.questionsAttempted = 0;
+          parsed.stats.correctAnswers = 0;
+          parsed.stats.mistakes = [];
+          parsed.stats.solved = {};
+          parsed.stats.topicMastery = {};
+          parsed.stats.streak = 0;
+          parsed.stats.predictedMathScore = 400;
+          parsed.stats.predictedRWScore = 400;
+        }
         if (!parsed.stats.solved) parsed.stats.solved = {};
         if (!parsed.stats.savedQuestions) parsed.stats.savedQuestions = [];
         if (parsed.stats.streak === undefined) parsed.stats.streak = 0;
+        if (!parsed.stats.solveHistory) parsed.stats.solveHistory = [];
+      }
+      if (!parsed.difficultyOverrides) {
+        parsed.difficultyOverrides = {};
       }
       // SELF-REPAIR: If old large questionBank exists in localStorage, prune it to free up quota
       if (parsed.questionBank) {
         delete parsed.questionBank;
         try {
-          localStorage.setItem('preplogy_state', JSON.stringify(parsed));
+          localStorage.setItem('prepology_state', JSON.stringify(parsed));
         } catch (err) {
           console.error('Failed to prune legacy questionBank', err);
         }
@@ -47,10 +94,12 @@ function loadState(): AppState {
         ...defaultState, 
         ...parsed, 
         stats: { ...defaultState.stats, ...parsed.stats },
+        difficultyOverrides: parsed.difficultyOverrides || {},
         questionBank: [] // Reset questionBank so it is loaded fresh from JSON
       };
     } catch (e) {
       console.error('Failed to load state', e);
+      localStorage.removeItem('prepology_state');
       localStorage.removeItem('preplogy_state');
     }
   }
@@ -66,7 +115,7 @@ function saveState(state: AppState) {
     }
     return value;
   }));
-  localStorage.setItem('preplogy_state', JSON.stringify(stateToSave));
+  localStorage.setItem('prepology_state', JSON.stringify(stateToSave));
 }
 
 class Store {
@@ -103,11 +152,18 @@ class Store {
   }
 
   public setQuestionBank(questions: Question[]) {
-    this.state.questionBank = questions;
+    const overrides = this.state.difficultyOverrides || {};
+    this.state.questionBank = questions.map(q => {
+      if (overrides[q.id] !== undefined) {
+        return { ...q, difficulty: overrides[q.id] };
+      }
+      return q;
+    });
+    
     this.notify();
   }
 
-  public startSession(section: TestSession['currentSection'], difficulty?: number, domain?: string, skill?: string, isOfficial?: boolean, randomize?: boolean) {
+  public startSession(section: TestSession['currentSection'], difficulty?: number, domain?: string, skill?: string, isOfficial?: boolean, randomize?: boolean, filterMode?: 'missed' | undefined) {
     let filtered = this.state.questionBank.filter(q => q.section === section);
     if (isOfficial !== undefined) {
       filtered = filtered.filter(q => !!q.official === isOfficial);
@@ -120,6 +176,11 @@ class Store {
     }
     if (skill && skill !== 'All') {
       filtered = filtered.filter(q => q.skill === skill);
+    }
+    // Missed-only mode: only questions answered incorrectly
+    if (filterMode === 'missed') {
+      const solvedMap = this.state.stats.solved || {};
+      filtered = filtered.filter(q => solvedMap[q.id] && !solvedMap[q.id].correct);
     }
     
     if (randomize) {
@@ -154,15 +215,97 @@ class Store {
     }
   }
   
-  public checkAnswer(questionId: string) {
+  public checkAnswer(questionId: string, timeSpent?: number) {
     if (this.state.session) {
       this.state.session.checked.add(questionId);
       if (!this.state.session.attempts[questionId]) {
         this.state.session.attempts[questionId] = 0;
       }
       this.state.session.attempts[questionId]++;
+
+      // INCREMENTAL SAVE: Save progress immediately when checked
+      const qId = questionId;
+      const optionId = this.state.session.answers[qId];
+      const q = this.state.questionBank.find(x => x.id === qId);
+      if (q && optionId !== undefined) {
+        if (!this.state.stats.solved) {
+          this.state.stats.solved = {};
+        }
+        
+        // Only update stats.questionsAttempted if this is the first attempt at checking this question
+        const isFirstAttempt = this.state.session.attempts[qId] === 1;
+        const prevSolved = this.state.stats.solved[qId];
+        
+        if (isFirstAttempt && !prevSolved) {
+          this.state.stats.questionsAttempted++;
+        }
+        
+        const isCorrect = areAnswersEquivalent(q.correctAnswer, optionId);
+        
+        this.state.stats.solved[qId] = {
+          attempts: this.state.session.attempts[qId],
+          correct: isCorrect && this.state.session.attempts[qId] <= 1
+        };
+
+        if (isCorrect && this.state.session.attempts[qId] <= 1 && (!prevSolved || !prevSolved.correct)) {
+          this.state.stats.correctAnswers++;
+        } else if ((!isCorrect || this.state.session.attempts[qId] > 1) && (!prevSolved || prevSolved.correct)) {
+          if (!this.state.stats.mistakes.includes(q.id)) {
+            this.state.stats.mistakes.push(q.id);
+          }
+        }
+
+        // Save attempt in solveHistory
+        if (!this.state.stats.solveHistory) {
+          this.state.stats.solveHistory = [];
+        }
+        const existingIdx = this.state.stats.solveHistory.findIndex(h => h.id === qId);
+        const historyEntry = {
+          id: qId,
+          timestamp: Date.now(),
+          correct: isCorrect && this.state.session.attempts[qId] <= 1,
+          timeSpent: timeSpent || 45,
+          difficulty: q.difficulty,
+          section: q.section,
+          domain: q.domain,
+          skill: q.skill
+        };
+        if (existingIdx !== -1) {
+          this.state.stats.solveHistory[existingIdx] = historyEntry;
+        } else {
+          this.state.stats.solveHistory.push(historyEntry);
+        }
+      }
+
       this.notify();
     }
+  }
+
+  public setQuestionDifficulty(questionId: string, difficulty: 1 | 2 | 3) {
+    if (!this.state.difficultyOverrides) {
+      this.state.difficultyOverrides = {};
+    }
+    this.state.difficultyOverrides[questionId] = difficulty;
+
+    // Apply to loaded questionBank
+    this.state.questionBank = this.state.questionBank.map(q => {
+      if (q.id === questionId) {
+        return { ...q, difficulty };
+      }
+      return q;
+    });
+
+    // Also update in solveHistory if present there
+    if (this.state.stats.solveHistory) {
+      this.state.stats.solveHistory = this.state.stats.solveHistory.map(h => {
+        if (h.id === questionId) {
+          return { ...h, difficulty };
+        }
+        return h;
+      });
+    }
+
+    this.notify();
   }
 
   public toggleFlag(questionId: string) {
@@ -214,20 +357,25 @@ class Store {
       for (const [qId, optionId] of Object.entries(this.state.session.answers)) {
         const q = this.state.questionBank.find(x => x.id === qId);
         if (q) {
-          this.state.stats.questionsAttempted++;
-          const isCorrect = q.correctAnswer === optionId;
+          const prevSolved = this.state.stats.solved[qId];
           const attemptCount = this.state.session.attempts[qId] || 0;
-          
-          this.state.stats.solved[qId] = {
-            attempts: attemptCount,
-            correct: isCorrect && attemptCount <= 1
-          };
 
-          if (isCorrect && attemptCount <= 1) {
-            correctInSession++;
-          } else if (!isCorrect || attemptCount > 1) {
-            if (!this.state.stats.mistakes.includes(q.id)) {
-              this.state.stats.mistakes.push(q.id);
+          // If the student answered but never checked the answer, record it now!
+          if (!prevSolved) {
+            this.state.stats.questionsAttempted++;
+            const isCorrect = areAnswersEquivalent(q.correctAnswer, optionId);
+            
+            this.state.stats.solved[qId] = {
+              attempts: Math.max(1, attemptCount),
+              correct: isCorrect
+            };
+
+            if (isCorrect) {
+              correctInSession++;
+            } else {
+              if (!this.state.stats.mistakes.includes(q.id)) {
+                this.state.stats.mistakes.push(q.id);
+              }
             }
           }
         }

@@ -67,15 +67,17 @@
   // ─────────────────────────────────────────────────────────────────────────────
   function normalizeDomain(raw) {
     if (!raw) return '';
-    const r = (typeof raw === 'string' ? raw : JSON.stringify(raw)).toLowerCase();
-    if (r.includes('advanced math')) return 'Advanced Math';
-    if (r.includes('algebra')) return 'Algebra';
-    if (r.includes('geometry') || r.includes('trigonometry')) return 'Geometry and Trigonometry';
-    if (r.includes('problem') || r.includes('data analysis') || r.includes('statistics')) return 'Problem-Solving and Data Analysis';
-    if (r.includes('information') || r.includes('ideas')) return 'Information and Ideas';
-    if (r.includes('craft') || r.includes('structure')) return 'Craft and Structure';
-    if (r.includes('standard english') || r.includes('conventions')) return 'Standard English Conventions';
-    if (r.includes('expression')) return 'Expression of Ideas';
+    const r = (typeof raw === 'string' ? raw : JSON.stringify(raw)).toLowerCase().trim();
+    // CB primary_class_cd codes (single letter or dot-separated like H.A.)
+    const code = r.split('.')[0].split('#').pop().trim();
+    if (code === 'h' || r.includes('advanced math')) return 'Advanced Math';
+    if (code === 'a' || r.includes('algebra')) return 'Algebra';
+    if (code === 'g' || r.includes('geometry') || r.includes('trigonometry')) return 'Geometry and Trigonometry';
+    if (code === 'p' || r.includes('problem') || r.includes('data analysis') || r.includes('statistics')) return 'Problem-Solving and Data Analysis';
+    if (code === 'i' || r.includes('information') || r.includes('ideas')) return 'Information and Ideas';
+    if (code === 'c' || r.includes('craft') || r.includes('structure')) return 'Craft and Structure';
+    if (code === 's' || r.includes('standard english') || r.includes('conventions')) return 'Standard English Conventions';
+    if (code === 'e' || r.includes('expression')) return 'Expression of Ideas';
     return typeof raw === 'string' ? raw : '';
   }
 
@@ -224,16 +226,31 @@
   // ─────────────────────────────────────────────────────────────────────────────
   function mapQuestion(raw, parentMeta) {
     // ── ID ──────────────────────────────────────────────────────────────────────
-    const id = raw.externalid || raw.externalId || raw.external_id || raw.questionId || raw.question_id || raw.id || raw.vaultid || raw.vault_id || raw.itemId || raw.item_id || null;
+    // CB API: external_id is the UUID, questionId is the short hex ID
+    const id = raw.external_id || raw.externalid || raw.externalId || raw.questionId || raw.question_id || raw.id || raw.vaultid || raw.vault_id || raw.itemId || raw.item_id || null;
     if (!id) return null;
 
-    const metadata = (window.__CB_METADATA__ && (window.__CB_METADATA__.get(String(id)) || window.__CB_METADATA__.get(String(id).substring(0, 8)))) || {};
+    const numericId = raw.__url_id;
 
-    // ── Domain — CB stores this at PARENT level (URL params, wrapper object, or PTN code)
+    const metadata = (window.__CB_METADATA__ && (
+      window.__CB_METADATA__.get(String(id)) ||
+      (raw.external_id && window.__CB_METADATA__.get(String(raw.external_id))) ||
+      (raw.externalid && window.__CB_METADATA__.get(String(raw.externalid))) ||
+      (raw.questionId && window.__CB_METADATA__.get(String(raw.questionId))) ||
+      (raw.id && window.__CB_METADATA__.get(String(raw.id))) ||
+      (numericId && window.__CB_METADATA__.get(String(numericId)))
+    )) || {};
+
+    if (!metadata.difficulty && !metadata.domain) {
+      console.warn(`⚠️ METADATA MISSING FOR ${id}! You must click the "Search" button on the page AFTER pasting this script so it can capture the difficulties/skills!`);
+    }
+
+    // ── Domain — use metadata captured from get-questions API, then raw fields
     const rawDomain =
       metadata.domain ||
       (parentMeta && parentMeta.domain) ||
-      (parentMeta && parentMeta.contentDomain) ||
+      raw.primary_class_cd_desc ||                // CB: 'Algebra', 'Advanced Math', etc.
+      raw.primary_class_cd ||                     // CB: 'H', 'A', 'G', 'P'
       raw.domain ||
       raw.contentDomain ||
       raw.primaryDomain ||
@@ -241,8 +258,7 @@
       raw.primaryClassification?.domain ||
       raw.classification?.domain ||
       raw.contentAreaName ||
-      raw.reportingCategory ||
-      domainFromPTN(raw.parenttemplatename) ||   // decode OSP-065-INF → domain
+      domainFromPTN(raw.parenttemplatename) ||
       '';
     const domain = normalizeDomain(rawDomain) || 'Unknown';
 
@@ -253,59 +269,75 @@
     const section = isMath ? 'Math' : 'Reading and Writing';
 
     // ── Difficulty ────────────────────────────────────────────────────────────────
-    let difficulty = metadata.difficulty || (parentMeta && parentMeta.difficulty) || 2;
-    if (!difficulty || difficulty === 2) {
-      const diff = (
-        raw.difficulty ||
-        raw.difficultyBand ||
-        raw.difficulty_band ||
-        raw.difficultyLevel ||
-        raw.difficulty_level ||
-        raw.difficultyCode ||
-        raw.difficulty_code ||
-        raw.difficultyband ||
-        raw.difficultylevel ||
-        raw.difficultycode ||
-        ''
-      ).toString().toLowerCase();
+    let difficulty = metadata.difficulty || (parentMeta && parentMeta.difficulty) || 0;
+    if (!difficulty) {
+      // CB API returns 'H', 'M', 'E' in the difficulty field
+      const diff = (raw.difficulty || raw.difficultyBand || raw.difficulty_band ||
+        raw.difficultyLevel || raw.difficulty_level || raw.difficultyCode || raw.difficulty_code || ''
+      ).toString().toLowerCase().trim();
       if (diff === '1' || diff === 'easy' || diff === 'e') difficulty = 1;
       else if (diff === '3' || diff === 'hard' || diff === 'h') difficulty = 3;
       else if (diff === '2' || diff === 'medium' || diff === 'm') difficulty = 2;
     }
+    if (!difficulty) difficulty = 2; // only default to 2 as last resort
 
-    // ── Question text (stem) ──────────────────────────────────────────────────────
-    // CB uses: stem, body, question, prompt, itemStem, questionText
-    const rawStem =
-      raw.stem ||
-      raw.body ||
-      raw.question ||
-      raw.prompt ||
-      raw.itemStem ||
-      raw.item_stem ||
-      raw.questionText ||
-      raw.question_text ||
-      raw.questionStem ||
-      raw.question_stem ||
-      raw.questionContent ||
-      raw.question_content ||
-      '';
+    // ── Question text (stem) + Passage/stimulus ──────────────────────────────────
+    // CB API has TWO patterns:
+    //   Pattern A (simple): raw.body = question stem, no separate stimulus
+    //   Pattern B (stimulus): raw.body = stimulus/equation HTML (stimulus_reference div),
+    //                         raw.prompt = actual question text
+    // We detect Pattern B by checking if raw.body starts with a stimulus_reference wrapper.
+    const bodyHtml = (typeof raw.body === 'string' ? raw.body : '') ||
+                     (typeof raw.stem === 'string' ? raw.stem : '');
+    const isStimulus = /class=["'][^"']*stimulus[^"']*/i.test(bodyHtml) ||
+                       /stimulus_reference/i.test(bodyHtml);
+
+    let rawStem, rawPassage;
+    if (isStimulus && raw.prompt) {
+      // Pattern B: body is the stimulus/context, prompt is the question text
+      rawStem = raw.prompt;
+      rawPassage =
+        raw.body ||
+        raw.stimulus ||
+        raw.passage ||
+        raw.context ||
+        raw.sharedPassage ||
+        raw.shared_passage ||
+        raw.passageText ||
+        raw.passage_text ||
+        '';
+    } else {
+      // Pattern A: normal — stem in body/stem/question/prompt, passage in stimulus etc.
+      rawStem =
+        raw.stem ||
+        raw.body ||
+        raw.question ||
+        raw.prompt ||
+        raw.itemStem ||
+        raw.item_stem ||
+        raw.questionText ||
+        raw.question_text ||
+        raw.questionStem ||
+        raw.question_stem ||
+        raw.questionContent ||
+        raw.question_content ||
+        '';
+      rawPassage =
+        raw.stimulus ||
+        raw.passage ||
+        raw.context ||
+        raw.sharedPassage ||
+        raw.shared_passage ||
+        raw.passageText ||
+        raw.passage_text ||
+        raw.readingPassage ||
+        raw.reading_passage ||
+        raw.primaryText ||
+        raw.primary_text ||
+        raw.excerpt ||
+        '';
+    }
     const questionText = clean(typeof rawStem === 'object' ? JSON.stringify(rawStem) : rawStem);
-
-    // ── Passage / stimulus ────────────────────────────────────────────────────────
-    const rawPassage =
-      raw.stimulus ||
-      raw.passage ||
-      raw.context ||
-      raw.sharedPassage ||
-      raw.shared_passage ||
-      raw.passageText ||
-      raw.passage_text ||
-      raw.readingPassage ||
-      raw.reading_passage ||
-      raw.primaryText ||
-      raw.primary_text ||
-      raw.excerpt ||
-      '';
     const passageText = clean(typeof rawPassage === 'object' ? JSON.stringify(rawPassage) : rawPassage) || null;
 
     // ── Answer choices ────────────────────────────────────────────────────────────
@@ -352,6 +384,9 @@
       const matchIdx = options.findIndex(o => o._uuid === keyUuid);
       if (matchIdx >= 0) {
         correctAnswer = String.fromCharCode(65 + matchIdx);
+      } else {
+        // For student-produced response (grid-in) questions, keys[0] is the actual correct answer text
+        correctAnswer = String(keyUuid);
       }
     } else {
       // Fallback to older field names
@@ -376,6 +411,7 @@
     // ── Skill ─────────────────────────────────────────────────────────────────────
     const rawSkill =
       metadata.skill ||
+      raw.skill_desc ||              // CB API: actual skill name e.g. "Linear equations in one variable"
       raw.skill ||
       raw.skillDescription ||
       raw.primarySkill?.description ||
@@ -410,8 +446,10 @@
   // ─────────────────────────────────────────────────────────────────────────────
   function looksLikeQuestion(obj) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
-    // If it has any sort of ID, it might be a question. We will let mapQuestion decide.
-    return !!(obj.externalid || obj.external_id || obj.vaultid || obj.vault_id || obj.questionId || obj.question_id || obj.externalId || obj.itemId || obj.item_id || obj.id);
+    // CB get-questions response fields: external_id (UUID), questionId (hex), plus content fields
+    return !!(obj.external_id || obj.externalid || obj.externalId ||
+      obj.vaultid || obj.vault_id || obj.questionId || obj.question_id ||
+      obj.itemId || obj.item_id || obj.id);
   }
 
   // Visited set to avoid re-processing the same object (WeakSet has no .clear() — use let + reassign)
@@ -424,33 +462,62 @@
     if (_visited.has(obj)) return;
     _visited.add(obj);
 
-    // Save metadata if this object has an ID and some metadata fields
-    const id = obj.externalid || obj.external_id || obj.vaultid || obj.vault_id || obj.questionId || obj.question_id || obj.externalId || obj.itemId || obj.item_id || obj.id;
-    if (id) {
-      const rawDiff = obj.difficulty || obj.difficultyBand || obj.difficulty_band || obj.difficultyLevel || obj.difficulty_level || obj.difficultyCode || obj.difficulty_code || obj.difficultyband || obj.difficultylevel || obj.difficultycode;
-      const rawDomain = obj.domain || obj.contentDomain || obj.category || obj.domainCode || obj.subjectCode || obj.contentArea || '';
-      const rawSkill = obj.skill || obj.reportingCategory || obj.skillCode || obj.skillName || '';
+    let difficultyVal = 0;
+    let domainVal = '';
+    let skillVal = '';
 
-      if (rawDiff || rawDomain || rawSkill) {
-        let difficultyVal = 0;
-        if (rawDiff) {
-          const d = String(rawDiff).toLowerCase();
-          if (d === 'easy' || d === '1' || d === 'e') difficultyVal = 1;
-          else if (d === 'medium' || d === '2' || d === 'm') difficultyVal = 2;
-          else if (d === 'hard' || d === '3' || d === 'h') difficultyVal = 3;
-        }
+    // Collect ALL possible ID fields from this object — store metadata under every one
+    const allIds = [
+      obj.external_id, obj.externalid, obj.externalId, // CB uses external_id as the UUID
+      obj.questionId, obj.question_id,                  // CB uses questionId as the short hex ID
+      obj.vaultid, obj.vault_id,
+      obj.itemId, obj.item_id,
+      obj.uId, obj.uid,
+      obj.id,
+    ].filter(Boolean).map(String).filter(v => v.length > 0);
 
-        const domainVal = normalizeDomain(rawDomain);
-        const skillVal = rawSkill;
+    // Gather raw metadata fields — using ACTUAL CB API field names from get-questions response
+    const rawDiff = obj.difficulty ||                   // CB: 'H', 'M', 'E'
+      obj.difficultyBand || obj.difficulty_band ||
+      obj.difficultyLevel || obj.difficulty_level ||
+      obj.difficultyCode || obj.difficulty_code || '';
+    const rawDomain = obj.primary_class_cd_desc ||      // CB: 'Algebra', 'Advanced Math', etc.
+      obj.primary_class_cd ||                           // CB: 'H', 'A', 'G', 'P' (single letter codes)
+      obj.domain || obj.contentDomain || obj.category ||
+      obj.domainCode || obj.subjectCode || obj.contentArea || obj.primaryDomain || '';
+    const rawSkill = obj.skill_desc ||                  // CB: 'Linear equations in one variable'
+      obj.skill || obj.reportingCategory || obj.skillCode || obj.skillName || '';
 
-        const existingMeta = window.__CB_METADATA__.get(String(id)) || {};
-        window.__CB_METADATA__.set(String(id), {
-          difficulty: difficultyVal || existingMeta.difficulty || 0,
-          domain: domainVal || existingMeta.domain || '',
-          skill: skillVal || existingMeta.skill || '',
-        });
-      }
+    if (rawDiff) {
+      const d = String(rawDiff).toLowerCase().trim();
+      if (d === 'easy' || d === '1' || d === 'e' || d === 'easy (e)') difficultyVal = 1;
+      else if (d === 'medium' || d === '2' || d === 'm' || d === 'medium (m)') difficultyVal = 2;
+      else if (d === 'hard' || d === '3' || d === 'h' || d === 'hard (h)') difficultyVal = 3;
     }
+    if (rawDomain) domainVal = normalizeDomain(rawDomain);
+    if (rawSkill) skillVal = typeof rawSkill === 'string' ? rawSkill : '';
+
+    // Also inherit from parentMeta if this object has no metadata of its own
+    const parentDiff = parentMeta && typeof parentMeta === 'object' ? (parentMeta.difficulty || 0) : 0;
+    const parentDomain = parentMeta && typeof parentMeta === 'object' ? (parentMeta.domain || '') : '';
+    const parentSkill = parentMeta && typeof parentMeta === 'object' ? (parentMeta.skill || '') : '';
+
+    const finalDiff = difficultyVal || parentDiff;
+    const finalDomain = domainVal || parentDomain;
+    const finalSkill = skillVal || parentSkill;
+
+    // Store under EVERY ID found on this object
+    if (allIds.length > 0 && (finalDiff || finalDomain || finalSkill)) {
+      allIds.forEach(qid => {
+        const existing = window.__CB_METADATA__.get(qid) || {};
+        window.__CB_METADATA__.set(qid, {
+          difficulty: finalDiff || existing.difficulty || 0,
+          domain: finalDomain || existing.domain || '',
+          skill: finalSkill || existing.skill || '',
+        });
+      });
+    }
+
 
     // ← KEY FIX: check the TOP-LEVEL object itself before walking into it
     if (!Array.isArray(obj) && looksLikeQuestion(obj)) {
@@ -475,11 +542,11 @@
       return;
     }
 
-    // Capture domain/skill from this object to pass down to children
+    // Capture domain/skill/difficulty to pass down to children — prefer this object's computed values
     const localMeta = {
-      domain: (parentMeta && parentMeta.domain) || normalizeDomain(obj.domain || obj.contentDomain || obj.category || ''),
-      skill: (parentMeta && parentMeta.skill) || obj.skill || obj.reportingCategory || '',
-      difficulty: (parentMeta && parentMeta.difficulty) || 0,
+      domain: finalDomain || normalizeDomain(obj.domain || obj.contentDomain || obj.category || ''),
+      skill: finalSkill || obj.skill || obj.reportingCategory || '',
+      difficulty: finalDiff || 0,
     };
 
     // Object: walk every value
@@ -506,6 +573,7 @@
   function processResponse(url, json, requestMeta) {
     const before = window.__CB_QUESTIONS__.size;
     _visited = new WeakSet();
+    
     // Pull domain/skill/difficulty from URL query params (the filter context)
     const urlMeta = metaFromUrl(url);
     // Merge with request body payload metadata (payload overrides URL query)
@@ -515,15 +583,80 @@
       difficulty: requestMeta?.difficulty || urlMeta.difficulty || 0,
     };
     tryExtract(json, combinedMeta);
+
+    // Cross-reference pass: if the JSON has objects that contain BOTH a numeric ID and UUID,
+    // copy metadata stored under numeric ID to the UUID and vice versa
+    function crossRef(obj) {
+      if (!obj || typeof obj !== 'object') return;
+      if (Array.isArray(obj)) { obj.forEach(crossRef); return; }
+      // Collect all IDs on this object
+      const numericIds = [obj.id, obj.itemId, obj.item_id, obj.vaultid, obj.vault_id].filter(v => v && /^\d+$/.test(String(v))).map(String);
+      const uuids = [obj.externalid, obj.externalId, obj.external_id, obj.questionId, obj.question_id].filter(v => v && /[0-9a-f]{8}-[0-9a-f]{4}/i.test(String(v))).map(String);
+      if (numericIds.length > 0 && uuids.length > 0) {
+        // For each numeric ID that has metadata, copy it to all UUIDs
+        numericIds.forEach(nid => {
+          const meta = window.__CB_METADATA__.get(nid);
+          if (meta && (meta.difficulty || meta.domain || meta.skill)) {
+            uuids.forEach(uid => {
+              const existing = window.__CB_METADATA__.get(uid) || {};
+              if (!existing.difficulty && !existing.domain) {
+                window.__CB_METADATA__.set(uid, { ...meta });
+              }
+            });
+          }
+        });
+        // Also reverse: UUID meta → numeric IDs
+        uuids.forEach(uid => {
+          const meta = window.__CB_METADATA__.get(uid);
+          if (meta && (meta.difficulty || meta.domain || meta.skill)) {
+            numericIds.forEach(nid => {
+              const existing = window.__CB_METADATA__.get(nid) || {};
+              if (!existing.difficulty && !existing.domain) {
+                window.__CB_METADATA__.set(nid, { ...meta });
+              }
+            });
+          }
+        });
+      }
+      for (const val of Object.values(obj)) {
+        if (val && typeof val === 'object') crossRef(val);
+      }
+    }
+    try { crossRef(json); } catch(_) {}
+
     const after = window.__CB_QUESTIONS__.size;
     const newCount = after - before;
     if (newCount > 0) {
-      console.log(`%c✅ +${newCount} questions captured (total: ${after})`, 'color: #16a34a; font-weight: bold');
+      console.log(`%c✅ +${newCount} questions captured (total: ${after}) | metadata: ${window.__CB_METADATA__.size} entries`, 'color: #16a34a; font-weight: bold');
     } else {
       const keys = Array.isArray(json) ? `[Array of ${json.length}]` : Object.keys(json).slice(0, 8).join(', ');
-      console.log(`%c📦 API response captured. Top keys: ${keys}`, 'color: #f59e0b');
+      console.log(`%c📦 API response. Top keys: ${keys} | metadata: ${window.__CB_METADATA__.size} entries`, 'color: #f59e0b');
     }
   }
+
+  // Debug: show what's in the metadata map and compare to captured question IDs
+  window.debugMeta = function() {
+    console.log(`%c🔍 Metadata Map: ${window.__CB_METADATA__.size} entries`, 'color: #8b5cf6; font-weight: bold');
+    let i = 0;
+    window.__CB_METADATA__.forEach((v, k) => {
+      if (i++ < 10) console.log(`  ${k} →`, v);
+    });
+    const questions = Array.from(window.__CB_QUESTIONS__.values());
+    console.log(`%c🔍 Questions: ${questions.length} captured`, 'color: #8b5cf6; font-weight: bold');
+    if (questions.length > 0) {
+      const q = questions[0];
+      console.log(`  First question ID: "${q.id}"`);
+      console.log(`  Metadata for it:`, window.__CB_METADATA__.get(q.id));
+      console.log(`  difficulty: ${q.difficulty}, domain: ${q.domain}, skill: ${q.skill}`);
+      console.log(`  Raw _raw keys:`, q._raw ? Object.keys(q._raw) : 'no _raw');
+    }
+    console.log('%cRaw responses captured:', 'color: #8b5cf6', window.__CB_RAW_RESPONSES__.length);
+    if (window.__CB_RAW_RESPONSES__.length > 0) {
+      const r = window.__CB_RAW_RESPONSES__[0];
+      console.log('  First response URL:', r.url);
+      console.log('  First response keys:', Object.keys(r.data).slice(0, 10));
+    }
+  };
 
   // Manual helper: call with __CB_RAW_RESPONSES__[i].data to re-extract
   window.extractFrom = function(obj, urlHint, requestMeta) {
@@ -670,19 +803,159 @@
   // Show the structure of the last raw response so we can see the CB schema
   window.inspectRaw = function (index) {
     const responses = window.__CB_RAW_RESPONSES__;
-    if (responses.length === 0) { console.log('No raw responses yet. Navigate/click "View Questions" first.'); return; }
+    if (!responses || responses.length === 0) { console.log('No raw responses yet. Navigate/click "View Questions" first.'); return; }
     const resp = responses[index !== undefined ? index : responses.length - 1];
     console.log(`%cURL: ${resp.url}`, 'color: #6366f1');
     console.log('%cTop-level keys:', 'color: #6366f1', Object.keys(resp.data));
     console.log('%cFull response:', 'color: #6366f1', resp.data);
   };
 
+  // Download all raw API responses as JSON for local analysis
+  window.downloadRaw = function () {
+    const responses = window.__CB_RAW_RESPONSES__;
+    if (!responses || responses.length === 0) { console.log('No raw responses captured yet. Click Search/View Questions first.'); return; }
+    const blob = new Blob([JSON.stringify(responses, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: `cb_raw_${Date.now()}.json` });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    console.log(`%c✅ Downloaded ${responses.length} raw API responses`, 'color: green; font-weight: bold');
+  };
+
+  // DOM Table Scraper - read difficulty/domain/skill from visible search results table
+  function scrapeTableMetadata() {
+    let count = 0;
+    const rows = document.querySelectorAll('tr, [role="row"], [data-testid*="row"], [class*="question-row"], [class*="questionRow"], [class*="result-row"], [class*="resultRow"]');
+    rows.forEach(row => {
+      const text = row.textContent || '';
+      const idMatch = text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+      if (!idMatch) return;
+      const questionId = idMatch[0];
+      const diffMatch = text.match(/\b(Easy|Medium|Hard)\b/i);
+      let difficulty = 0;
+      if (diffMatch) {
+        const d = diffMatch[1].toLowerCase();
+        difficulty = d === 'easy' ? 1 : d === 'medium' ? 2 : 3;
+      }
+      let domain = '';
+      let skill = '';
+      row.querySelectorAll('td, [role="cell"], [class*="cell"], [class*="col"]').forEach(cell => {
+        const ct = cell.textContent.trim();
+        const nd = normalizeDomain(ct);
+        if (nd) { domain = nd; }
+        else if (ct && ct.length > 3 && ct.length < 80 && !/^[0-9\s\-\/]+$/.test(ct) && ct !== domain) {
+          if (!skill) skill = ct;
+        }
+      });
+      if (difficulty || domain || skill) {
+        const existing = window.__CB_METADATA__.get(questionId) || {};
+        window.__CB_METADATA__.set(questionId, {
+          difficulty: difficulty || existing.difficulty || 0,
+          domain: domain || existing.domain || '',
+          skill: skill || existing.skill || '',
+        });
+        count++;
+      }
+    });
+    return count;
+  }
+
+  // Call scrapeTable() to grab metadata from what is currently visible on screen
+  window.scrapeTable = function() {
+    const count = scrapeTableMetadata();
+    console.log(`Scraped ${count} metadata entries from DOM. Metadata map: ${window.__CB_METADATA__.size} entries`);
+    // Patch already-captured questions with fresh metadata
+    window.__CB_QUESTIONS__.forEach((q, id) => {
+      const meta = window.__CB_METADATA__.get(id);
+      if (meta) {
+        if (meta.difficulty) q.difficulty = meta.difficulty;
+        if (meta.domain && meta.domain !== 'Unknown') { q.domain = meta.domain; q.section = ['Algebra','Advanced Math','Geometry and Trigonometry','Problem-Solving and Data Analysis'].includes(meta.domain) ? 'Math' : 'Reading and Writing'; }
+        if (meta.skill && meta.skill !== 'Unknown') q.skill = meta.skill;
+      }
+    });
+    console.log('Done. Run downloadQuestions() when all pages scraped.');
+  };
+
+  // Auto-scrapes the question bank pages while the user is away/sleeping
+  window.startAutoScrape = async function (intervalMs = 2500) {
+    console.log('%c🤖 Auto-Scrape Started!', 'color: #2563eb; font-size: 14px; font-weight: bold');
+    console.log('%cKeep the browser tab active and do not close it. Once finished, a JSON file will download automatically.', 'color: #64748b');
+
+    let pageCount = 1;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    while (true) {
+      // 1. Scrape current page metadata from DOM
+      const currentMetaCount = scrapeTableMetadata();
+      console.log(`[Page ${pageCount}] Scraped metadata for ${currentMetaCount} questions on current page.`);
+
+      // 2. Find and click the "Next" button
+      const nextSelectors = [
+        'button[aria-label="Next page"]',
+        'button[aria-label="next"]',
+        '[data-testid="next-page"]',
+        'button:not([disabled])[class*="next"]',
+        'li[class*="next"] button',
+        'li[class*="next"] a',
+        '[class*="pagination"] button:last-child:not([disabled])',
+        'nav[aria-label*="pagination"] button:last-child:not([disabled])',
+      ];
+      
+      let nextBtn = null;
+      for (const sel of nextSelectors) {
+        try {
+          const btn = document.querySelector(sel);
+          if (btn && !btn.hasAttribute('disabled') && btn.disabled !== true && btn.offsetParent !== null) {
+            nextBtn = btn;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      // If no selector matched, try textual search
+      if (!nextBtn) {
+        const allBtns = [...document.querySelectorAll('button:not([disabled])')];
+        nextBtn = allBtns.find(b => {
+          const t = b.textContent?.trim();
+          return t === '>' || t === '›' || t === 'Next' || t === 'next' || 
+                 b.getAttribute('aria-label')?.toLowerCase().includes('next');
+        });
+      }
+
+      if (nextBtn) {
+        console.log('Moving to next page...');
+        nextBtn.click();
+        pageCount++;
+        // Wait for page to load and API requests to fire/complete
+        await sleep(intervalMs);
+      } else {
+        console.log('%c✅ Reached the end! No more pages found.', 'color: #16a34a; font-weight: bold');
+        break;
+      }
+    }
+
+    // Force reprocess to make sure all metadata maps onto captured question details
+    window.reprocess();
+
+    console.log(`%cTotal captured questions: ${window.__CB_QUESTIONS__.size}`, 'color: #2563eb; font-weight: bold');
+    
+    // Auto-trigger download
+    window.downloadQuestions();
+  };
+
   // Force re-run extraction on all captured raw responses
   window.reprocess = function () {
     const before = window.__CB_QUESTIONS__.size;
-    // Keep existing metadata (like table-scraped difficulties) intact
     window.__CB_RAW_RESPONSES__.forEach(r => processResponse(r.url, r.data, r.requestMeta));
     doFiberScan();
+    // Also patch with DOM-scraped metadata
+    window.__CB_QUESTIONS__.forEach((q, id) => {
+      const meta = window.__CB_METADATA__.get(id);
+      if (meta) {
+        if (meta.difficulty) q.difficulty = meta.difficulty;
+        if (meta.domain && meta.domain !== 'Unknown') { q.domain = meta.domain; q.section = ['Algebra','Advanced Math','Geometry and Trigonometry','Problem-Solving and Data Analysis'].includes(meta.domain) ? 'Math' : 'Reading and Writing'; }
+        if (meta.skill && meta.skill !== 'Unknown') q.skill = meta.skill;
+      }
+    });
     console.log(`Reprocessed ${window.__CB_RAW_RESPONSES__.length} responses. Questions: ${before} → ${window.__CB_QUESTIONS__.size}`);
   };
 
@@ -713,7 +986,7 @@
   };
 
   console.log('%c─────────────────────────────────────────────', 'color: #94a3b8');
-  console.log('%c📚 Preplogy CB Scraper v3 Ready!', 'color: #2563eb; font-size: 14px; font-weight: bold');
+  console.log('%c📚 Prepology CB Scraper v3 Ready!', 'color: #2563eb; font-size: 14px; font-weight: bold');
   console.log('%c• Click "View Questions" to load data', 'color: #64748b');
   console.log('%c• scraperStatus()    → check capture count', 'color: #64748b');
   console.log('%c• inspectRaw()       → see raw API structure', 'color: #64748b');

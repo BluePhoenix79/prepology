@@ -74,6 +74,7 @@ export function renderReview(): HTMLElement {
       const q = state.questionBank.find(x => x.id === id);
       if (!q) return;
 
+      const isMathQ = q.section === 'Math';
       const card = document.createElement('div');
       card.className = 'mistake-card';
       card.innerHTML = `
@@ -83,10 +84,13 @@ export function renderReview(): HTMLElement {
           <span class="m-tag">${q.skill}</span>
           <span class="m-tag m-tag--err">Difficulty ${q.difficulty === 1 ? 'Easy' : q.difficulty === 2 ? 'Medium' : 'Hard'}</span>
         </div>
+        ${q.passageText && isMathQ ? `
+          <div style="margin-bottom:0.75rem;padding:0.75rem;background:var(--c-surface-2,#f8f9fa);border-radius:0.5rem;text-align:center;">${q.passageText}</div>
+        ` : ''}
         <div style="font-size:0.9375rem;line-height:1.65;margin-bottom:0.25rem;">${q.questionText}</div>
-        ${q.passageText ? `
+        ${q.passageText && !isMathQ ? `
           <details style="margin:0.625rem 0;">
-            <summary style="cursor:pointer;font-size:0.8125rem;color:var(--c-blue);font-weight:500;user-select:none;">View passage ▸</summary>
+            <summary style="cursor:pointer;font-size:0.8125rem;color:var(--c-blue);font-weight:500;user-select:none;">View passage &#9658;</summary>
             <div style="margin-top:0.75rem;font-family:var(--font-serif);font-size:0.9375rem;line-height:1.85;color:var(--c-text-2);padding:0.75rem 0;">${q.passageText}</div>
           </details>
         ` : ''}

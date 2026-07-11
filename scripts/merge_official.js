@@ -62,7 +62,7 @@ function classifySkill(section, domain, text) {
       return 'Form, Structure, and Sense';
     }
     if (domain === 'Expression of Ideas') {
-      if (t.includes('transition') || t.includes('furthermore') || t.includes('however') || t.includes('therefore')) return 'Transitions';
+      if (t.includes('transition') || t.includes('furthermore') || t.includes('however') || t.includes('therefore') || t.includes('consequently') || t.includes('additionally')) return 'Transitions';
       return 'Rhetorical Synthesis';
     }
   }
@@ -148,7 +148,7 @@ function guessDomain(section, questionText) {
     }
     return 'Algebra';
   } else {
-    if (t.includes('transition') || t.includes('furthermore') || t.includes('consequently') || t.includes('therefore') || t.includes('however') || t.includes('student notes') || t.includes('synthesize')) {
+    if (t.includes('transition') || t.includes('furthermore') || t.includes('consequently') || t.includes('therefore') || t.includes('however') || t.includes('additionally') || t.includes('student notes') || t.includes('synthesize') || t.includes('note') || t.includes('complete the text')) {
       return 'Expression of Ideas';
     }
     if (t.includes('precise word') || t.includes('as used in') || t.includes('main purpose') || t.includes('overall structure') || t.includes('connections') || t.includes('author')) {
@@ -161,6 +161,16 @@ function guessDomain(section, questionText) {
   }
 }
 
+// Helper for question text comparison normalization
+function normalizeTextForComparison(text) {
+  if (!text) return '';
+  return text
+    .replace(/<[^>]*>/g, '') // Strip HTML tags
+    .replace(/data:image\/[^;]+;base64,[^\s"'>]+/g, '') // Strip base64 image data so we only compare text content
+    .replace(/[^a-zA-Z0-9]/g, '') // Strip punctuation, spaces, operators
+    .toLowerCase();
+}
+
 // Normalize each question
 const normalized = rawQuestions.map(q => {
   let section = q.section;
@@ -169,11 +179,17 @@ const normalized = rawQuestions.map(q => {
 
   // Force correct section based on MathML, SVG, LaTeX formulas, or equations
   const textBody = (q.questionText || '') + ' ' + (q.rationale || '');
+  const cleanText = (q.questionText || '').replace(/<[^>]*>/g, '');
+  const cleanBody = textBody.replace(/<[^>]*>/g, '');
   const containsMathTags = textBody.includes('<math') || textBody.includes('math xmlns') || textBody.includes('<svg') || textBody.includes('$$') || textBody.includes('\\(');
-  const containsEquations = /[\+\=\<\>\^]/g.test(q.questionText || '') && (textBody.includes('x') || textBody.includes('y') || textBody.includes('equals') || textBody.includes('value of') || textBody.includes('equation'));
+  const containsEquations = /[\+\=\^]/g.test(cleanText) && (cleanBody.includes('x') || cleanBody.includes('y') || cleanBody.includes('equals') || cleanBody.includes('value of') || cleanBody.includes('equation'));
   const isMath = containsMathTags || containsEquations || mathDomains.includes(domain);
 
-  section = isMath ? 'Math' : 'Reading and Writing';
+  if (isMath) {
+    section = 'Math';
+  } else if (!section || section === 'Unknown') {
+    section = 'Reading and Writing';
+  }
 
   // Deduce domain if Unknown or misclassified
   const isRWDomain = ['Information and Ideas', 'Craft and Structure', 'Standard English Conventions', 'Expression of Ideas'].includes(domain);
@@ -235,31 +251,83 @@ if (fs.existsSync(OUTPUT_FILE)) {
   }
 }
 
-// Keep existing official questions that are NOT in the new import file
-const newOfficialIds = new Set(normalized.map(q => q.id));
-const existingOfficialToKeep = existing.filter(q => q.official && !newOfficialIds.has(q.id));
+const existingOfficials = existing.filter(q => q.official);
 const nonOfficial = existing.filter(q => !q.official);
 
-// Merge: deduplicate by ID for new questions
-const dedupedNew = [];
-const seenNewIds = new Set();
-for (const q of normalized) {
-  if (!seenNewIds.has(q.id)) {
-    seenNewIds.add(q.id);
-    dedupedNew.push(q);
+// Helper to find a match by text content
+function findExistingMatchByText(newQ) {
+  const normNew = normalizeTextForComparison(newQ.questionText);
+  if (!normNew || normNew.length < 15) return null;
+  
+  return existingOfficials.find(eq => {
+    if (eq.section !== newQ.section) return false;
+    const normEq = normalizeTextForComparison(eq.questionText);
+    return normEq && normEq === normNew;
+  });
+}
+
+const updatedIds = new Set();
+const addedQuestions = [];
+let replaced = 0;
+
+for (const newQ of normalized) {
+  // 1. Try to find match by ID
+  let match = existingOfficials.find(eq => eq.id === newQ.id);
+  
+  // 2. Try to find match by normalized question text (stem)
+  if (!match) {
+    match = findExistingMatchByText(newQ);
+  }
+
+  if (match) {
+    // Update existing question difficulty and metadata safely
+    match.difficulty = newQ.difficulty || match.difficulty || 2;
+    
+    // Always trust newly scraped domain/skill if they are valid (to fix previous heuristic misclassifications)
+    if (newQ.domain && newQ.domain !== 'Unknown') {
+      match.domain = newQ.domain;
+    }
+    if (newQ.skill && newQ.skill !== 'Unknown') {
+      match.skill = newQ.skill;
+    }
+    match.tags = [match.domain, match.skill].filter(Boolean);
+    
+    // Recovery: If existing text is empty/short but new one is populated, recover the text!
+    if ((!match.questionText || match.questionText.length < 20) && newQ.questionText && newQ.questionText.length >= 20) {
+      match.questionText = newQ.questionText;
+    }
+    // Recovery: If existing options are empty but new one has options, recover options!
+    if ((!match.options || match.options.length === 0) && newQ.options && newQ.options.length > 0) {
+      match.options = newQ.options;
+      match.correctAnswer = newQ.correctAnswer;
+    }
+    
+    updatedIds.add(match.id);
+    replaced++;
+  } else {
+    addedQuestions.push(newQ);
   }
 }
 
-const merged = [...nonOfficial, ...existingOfficialToKeep, ...dedupedNew];
-const replaced = existing.filter(q => q.official && newOfficialIds.has(q.id)).length;
+// Keep all existing official questions (some might not have been matched or updated)
+// Reassemble the merged database: non-official first, then official database (which was updated in-place)
+const merged = [...nonOfficial, ...existingOfficials];
+
+// Also append any genuinely new questions that didn't match anything
+for (const q of addedQuestions) {
+  if (!existingOfficials.some(eq => eq.id === q.id)) {
+    merged.push(q);
+  }
+}
 
 fs.writeFileSync(OUTPUT_FILE, JSON.stringify(merged, null, 2), 'utf8');
 
 console.log(`
 ✅ Done!
-   Drill questions kept:      ${nonOfficial.length}
-   Official questions merged: ${dedupedNew.length} (${replaced} updated)
-   Total questions now:       ${merged.length}
+   Drill questions kept:        ${nonOfficial.length}
+   Official questions matched:  ${replaced} (difficulty updated)
+   Genuinely new official:      ${addedQuestions.length}
+   Total questions now:         ${merged.length}
 
    Saved to: src/data/questions.json
    

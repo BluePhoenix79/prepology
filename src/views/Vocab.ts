@@ -24,7 +24,7 @@ let filterMode: 'all' | 'saved' = 'all';
 
 function getBookmarkedVocab(): string[] {
   try {
-    const list = localStorage.getItem('preplogy_vocab_bookmarks');
+    const list = localStorage.getItem('prepology_vocab_bookmarks') || localStorage.getItem('preplogy_vocab_bookmarks');
     return list ? JSON.parse(list) : [];
   } catch (e) {
     return [];
@@ -38,7 +38,7 @@ function toggleBookmark(word: string) {
   } else {
     list.push(word);
   }
-  localStorage.setItem('preplogy_vocab_bookmarks', JSON.stringify(list));
+  localStorage.setItem('prepology_vocab_bookmarks', JSON.stringify(list));
 }
 
 export function renderVocab(): HTMLElement {
