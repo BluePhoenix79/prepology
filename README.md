@@ -108,17 +108,19 @@ Prepology uses two primary keys in `localStorage` to preserve progress:
 
 ## 📝 Future Roadmap & Todo List
 
-Here is a list of features planned for future releases of Prepology:
+Here is a roadmap of features planned for the future evolution of Prepology:
 
-### Core Capabilities
-- [ ] **Online User Accounts & Log-in**: Support user authentication, password resets, and profile management for multiple accounts.
-- [ ] **Cloud-Based Database Syncing**: Move progress, settings, and histories to a secure cloud database (e.g., Firebase, PostgreSQL) instead of browser local storage.
-- [ ] **Public Deployment & Hosting**: Configure hosting pipelines (e.g., Vercel, Netlify) to make the app publicly accessible.
-- [ ] **Practice Test Engine**: Support automatic and curated full-length practice tests modeled directly after the digital SAT format.
+### 🌟 Core Planned Features
+- [ ] **Online log-in and account creation**: Allow users to register, sign in, secure their accounts with email/password or OAuth, and customize their profiles.
+- [ ] **Cloud data storage**: Transition from pure client-side `localStorage` to a centralized cloud database (e.g., Firebase or Supabase) to securely save progress, custom difficulty settings, mistakes, and history.
+- [ ] **Public hosting and deployment**: Host the web application on a public platform (e.g., Vercel, Netlify, or AWS) so users can access Prepology from any device.
+- [ ] **Automatic & curated practice test creation**: Add a module that dynamically generates full-length, adaptive SAT mock exams using historical weighting and official subscore rules.
 
-### Advanced Enhancements (Ideas)
-- [ ] **Interactive AI Rationale Coach**: Implement an on-demand AI assistant that breaks down difficult passages and provides hints without giving away the answer.
-- [ ] **Spaced Repetition System (SRS) for Vocabulary**: Automate study intervals for vocab bookmarks using standard SRS algorithms.
-- [ ] **Interactive Score Progression Graph**: Render a dynamic line chart showing predicted SAT score evolution over weeks.
-- [ ] **Full-Length Mock Exam Simulation**: Add rigid test-taking modes that enforce official SAT section time boundaries and calculator constraints.
-- [ ] **Classroom & Teacher Dashboard**: Allow teachers to curate question packages and view student heatmap progress.
+### 💡 Advanced Feature Ideas
+- [ ] **Interactive AI Rationale Tutor**: Integrate a large language model (LLM) agent that students can chat with on any question to get customized, interactive hints rather than reading the plain-text answer key.
+- [ ] **Spaced Repetition System (SRS) for Vocabulary**: Enhance the "Vocab Cards" tab by introducing a Leitner-system queue that resurfaces card reviews at mathematically optimized intervals.
+- [ ] **Gamification & Badges**: Introduce experience points (XP), daily streak milestones, achievement badges, and level-ups to drive long-term engagement.
+- [ ] **Interactive Score Analytics Graphing**: Enhance the Analytics tab with interactive line-charts tracking estimated SAT math & reading scores across time, offering projection modeling.
+- [ ] **PDF Worksheet Export**: Enable users to export custom-filtered question pools or their mistakes list as formatted PDF worksheets with answer keys for offline paper-and-pencil practice.
+- [ ] **Peer Challenge Arena**: Introduce a real-time multiplayer "challenge mode" where friends can compete in small, timed mini-tests to solve questions correctly.
+- [ ] **Progressive Web App (PWA) Support**: Enable complete offline caching so students can continue practicing or studying vocabulary without an active internet connection.

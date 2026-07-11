@@ -61,18 +61,6 @@ function loadState(): AppState {
       parsed.session = null;
       parsed.currentView = 'dashboard';
       if (parsed.stats) {
-        // Self-repair: Clear out any generated mock data to start with empty real stats
-        if (parsed.stats.solveHistory && parsed.stats.solveHistory.length > 0) {
-          parsed.stats.solveHistory = [];
-          parsed.stats.questionsAttempted = 0;
-          parsed.stats.correctAnswers = 0;
-          parsed.stats.mistakes = [];
-          parsed.stats.solved = {};
-          parsed.stats.topicMastery = {};
-          parsed.stats.streak = 0;
-          parsed.stats.predictedMathScore = 400;
-          parsed.stats.predictedRWScore = 400;
-        }
         if (!parsed.stats.solved) parsed.stats.solved = {};
         if (!parsed.stats.savedQuestions) parsed.stats.savedQuestions = [];
         if (parsed.stats.streak === undefined) parsed.stats.streak = 0;
