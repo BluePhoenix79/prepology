@@ -335,6 +335,8 @@ export function renderTestSession(): HTMLElement {
 
     /* ───── EVENTS ───── */
     root.querySelector('#exit-btn')?.addEventListener('click', () => {
+      document.getElementById('desmos-modal')?.remove();
+      document.body.classList.remove('calc-docked');
       store.endSession();
     });
     root.querySelector('#flag-btn')?.addEventListener('click', () => { store.toggleFlag(q.id); draw(); });
@@ -373,7 +375,7 @@ export function renderTestSession(): HTMLElement {
             </div>
             <div id="desmos-calc" style="flex:1;"></div>
           `;
-          root.appendChild(modal);
+          document.body.appendChild(modal);
 
           let calcInstance: any = null;
           const load = () => {
@@ -388,30 +390,37 @@ export function renderTestSession(): HTMLElement {
           } else load();
 
           const dh = document.getElementById('dh')!;
-          let drag = false, ox = 0, oy = 0;
-          dh.addEventListener('mousedown', e => {
-            if (root.classList.contains('calc-docked')) return;
-            drag = true;
-            ox = e.clientX - modal!.offsetLeft;
-            oy = e.clientY - modal!.offsetTop;
-          });
-          window.addEventListener('mousemove', e => {
-            if (drag && !root.classList.contains('calc-docked')) {
+          let ox = 0, oy = 0;
+
+          const onMouseMove = (e: MouseEvent) => {
+            if (!document.body.classList.contains('calc-docked')) {
               modal!.style.left = `${e.clientX - ox}px`;
               modal!.style.top = `${e.clientY - oy}px`;
               modal!.style.right = 'unset';
             }
+          };
+
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+
+          dh.addEventListener('mousedown', e => {
+            if (document.body.classList.contains('calc-docked')) return;
+            ox = e.clientX - modal!.offsetLeft;
+            oy = e.clientY - modal!.offsetTop;
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
           });
-          window.addEventListener('mouseup', () => { drag = false; });
           
           document.getElementById('dc')?.addEventListener('click', () => {
-            root.classList.remove('calc-docked');
+            document.body.classList.remove('calc-docked');
             modal!.remove();
           });
 
           const dockBtn = document.getElementById('d-dock')!;
           dockBtn.addEventListener('click', () => {
-            const isDocked = root.classList.toggle('calc-docked');
+            const isDocked = document.body.classList.toggle('calc-docked');
             dockBtn.textContent = isDocked ? 'Float' : 'Dock';
             if (isDocked) {
               modal!.style.left = '';
@@ -522,6 +531,8 @@ export function renderTestSession(): HTMLElement {
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (store.getState().currentView !== 'test') {
+      document.getElementById('desmos-modal')?.remove();
+      document.body.classList.remove('calc-docked');
       window.removeEventListener('keydown', handleKeyDown);
       return;
     }
