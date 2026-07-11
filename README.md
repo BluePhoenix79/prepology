@@ -103,3 +103,22 @@ Prepology uses two primary keys in `localStorage` to preserve progress:
 - `prepology_vocab_bookmarks`: Tracks flagged vocabulary cards.
 
 *Note: Stored state from previous versions (`preplogy_`) is automatically detected and migrated on start.*
+
+---
+
+## 📝 Future Roadmap & Todo List
+
+Here is a list of features planned for future releases of Prepology:
+
+### Core Capabilities
+- [ ] **Online User Accounts & Log-in**: Support user authentication, password resets, and profile management for multiple accounts.
+- [ ] **Cloud-Based Database Syncing**: Move progress, settings, and histories to a secure cloud database (e.g., Firebase, PostgreSQL) instead of browser local storage.
+- [ ] **Public Deployment & Hosting**: Configure hosting pipelines (e.g., Vercel, Netlify) to make the app publicly accessible.
+- [ ] **Practice Test Engine**: Support automatic and curated full-length practice tests modeled directly after the digital SAT format.
+
+### Advanced Enhancements (Ideas)
+- [ ] **Interactive AI Rationale Coach**: Implement an on-demand AI assistant that breaks down difficult passages and provides hints without giving away the answer.
+- [ ] **Spaced Repetition System (SRS) for Vocabulary**: Automate study intervals for vocab bookmarks using standard SRS algorithms.
+- [ ] **Interactive Score Progression Graph**: Render a dynamic line chart showing predicted SAT score evolution over weeks.
+- [ ] **Full-Length Mock Exam Simulation**: Add rigid test-taking modes that enforce official SAT section time boundaries and calculator constraints.
+- [ ] **Classroom & Teacher Dashboard**: Allow teachers to curate question packages and view student heatmap progress.
