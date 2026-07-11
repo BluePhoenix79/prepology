@@ -44,10 +44,13 @@ export function renderDashboard(): HTMLElement {
       <div class="op-header">
         <h1 class="op-title">${activeSection === 'Math' ? 'Mathematics' : 'Reading & Writing'}</h1>
         <div class="op-header-actions">
-          <div class="op-random-toggle" style="display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;font-weight:600;color:var(--c-text-2);">
-            <input type="checkbox" id="randomize-checkbox" style="width:16px;height:16px;cursor:pointer;" ${shouldRandomize ? 'checked' : ''} />
-            <label for="randomize-checkbox" style="cursor:pointer;user-select:none;color:var(--c-text);">Randomize Order</label>
-          </div>
+          <label class="op-switch-container" for="randomize-checkbox">
+            <span>Randomize Order</span>
+            <div class="op-switch">
+              <input type="checkbox" id="randomize-checkbox" ${shouldRandomize ? 'checked' : ''} />
+              <span class="op-slider"></span>
+            </div>
+          </label>
           <div class="op-filter-dropdown">
             <label for="difficulty-select" class="op-select-label">Filters</label>
             <select id="difficulty-select" class="op-select">

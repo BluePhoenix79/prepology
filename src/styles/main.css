@@ -678,12 +678,13 @@ select:focus, input:focus {
 .spr-input {
   width: 100%;
   max-width: 300px;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 1rem !important;
   font-size: 1rem;
   border: 1px solid #ccc;
   border-radius: 6px;
-  background: #fff;
-  color: #000; /* override dash theme */
+  background: #ffffff !important;
+  color: #000000 !important;
+  background-image: none !important;
 }
 .spr-input.correct {
   border-color: #059669;
@@ -1152,20 +1153,77 @@ select:focus, input:focus {
   font-weight: 600;
 }
 .op-select {
-  background: #ffffff;
-  border: 1px solid #ccc;
+  background: var(--c-elevated);
+  border: 1px solid var(--c-border-md);
   border-radius: 6px;
-  padding: 0.35rem 0.75rem;
+  padding: 0.35rem 1.75rem 0.35rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #000000;
+  color: var(--c-text);
   cursor: pointer;
   outline: none;
-  background-image: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238fa3be' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 10px;
   min-width: 140px;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
+}
+
+/* Premium Switch Toggle */
+.op-switch-container {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--c-text-2);
+  user-select: none;
+  cursor: pointer;
+  background: var(--c-elevated);
+  border: 1px solid var(--c-border-md);
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  height: 34px;
+  box-sizing: border-box;
+}
+.op-switch {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+}
+.op-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.op-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #4b5563;
+  transition: .2s;
+  border-radius: 18px;
+}
+.op-slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+}
+.op-switch input:checked + .op-slider {
+  background-color: #1a56db;
+}
+.op-switch input:checked + .op-slider:before {
+  transform: translateX(14px);
 }
 
 /* Practice Hero block - Glassmorphism */
