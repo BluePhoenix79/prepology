@@ -117,6 +117,23 @@ try {
 const rawQuestions = Array.isArray(rawImport) ? rawImport : (rawImport.questions || []);
 console.log(`Loaded ${rawQuestions.length} questions from: ${path.basename(inputFile)}`);
 
+// Load difficulty map if provided (e.g. node scripts/merge_official.js cb_questions.json cb_difficulties.json)
+let difficultyMap = {};
+const diffArg = process.argv[3];
+if (diffArg) {
+  const diffPath = path.resolve(ROOT, diffArg);
+  if (fs.existsSync(diffPath)) {
+    console.log(`Loading difficulties from: ${path.basename(diffPath)}`);
+    try {
+      difficultyMap = JSON.parse(fs.readFileSync(diffPath, 'utf8'));
+    } catch (e) {
+      console.warn(`⚠️ Failed to parse difficulty map: ${e.message}`);
+    }
+  } else {
+    console.warn(`⚠️ Difficulty map file not found: ${diffPath}`);
+  }
+}
+
 function guessDomain(section, questionText) {
   const t = questionText.toLowerCase();
   if (section === 'Math') {
@@ -169,12 +186,29 @@ const normalized = rawQuestions.map(q => {
     skill = classifySkill(section, domain, textBody);
   }
 
+  // Determine difficulty
+  const shortId = (q.id || '').substring(0, 8).toLowerCase();
+  const fullId = (q.id || '').toLowerCase();
+  let difficulty = q.difficulty || 2;
+  if (difficultyMap[fullId] !== undefined) {
+    difficulty = difficultyMap[fullId];
+  } else if (difficultyMap[shortId] !== undefined) {
+    difficulty = difficultyMap[shortId];
+  }
+
+  if (typeof difficulty === 'string') {
+    const dStr = difficulty.toLowerCase();
+    if (dStr === 'easy' || dStr === '1') difficulty = 1;
+    else if (dStr === 'medium' || dStr === '2') difficulty = 2;
+    else if (dStr === 'hard' || dStr === '3') difficulty = 3;
+  }
+
   return {
     id: q.id,
     section,
     domain,
     skill,
-    difficulty: q.difficulty || 2,
+    difficulty,
     passageText: q.passageText || null,
     questionText: q.questionText || '',
     options: q.options || [],
