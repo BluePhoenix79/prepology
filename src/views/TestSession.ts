@@ -373,7 +373,7 @@ export function renderTestSession(): HTMLElement {
             </div>
             <div id="desmos-calc" style="flex:1;"></div>
           `;
-          document.body.appendChild(modal);
+          root.appendChild(modal);
 
           let calcInstance: any = null;
           const load = () => {
@@ -416,6 +416,8 @@ export function renderTestSession(): HTMLElement {
             if (isDocked) {
               modal!.style.left = '';
               modal!.style.top = '';
+              modal!.style.width = '';
+              modal!.style.height = '';
             } else {
               modal!.style.left = 'unset';
               modal!.style.top = '70px';

@@ -1683,10 +1683,6 @@ select:focus, input:focus {
   margin-left: 45vw !important;
   width: 55vw !important;
 }
-.bb-root.calc-docked .bb-footer {
-  left: 45vw !important;
-  width: 55vw !important;
-}
 .bb-root.calc-docked #desmos-modal {
   position: fixed !important;
   top: 50px !important;
