@@ -1677,3 +1677,36 @@ select:focus, input:focus {
 .bb-drawer-action-btn:hover {
   background: rgba(26, 86, 219, 0.05);
 }
+
+/* Calculator Sidebar Dock Mode */
+.bb-root.calc-docked .bb-main {
+  margin-left: 45vw !important;
+  width: 55vw !important;
+}
+.bb-root.calc-docked .bb-footer {
+  left: 45vw !important;
+  width: 55vw !important;
+}
+.bb-root.calc-docked #desmos-modal {
+  position: fixed !important;
+  top: 50px !important;
+  left: 0 !important;
+  right: auto !important;
+  width: 45vw !important;
+  height: calc(100vh - 100px) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border-right: 1px solid var(--c-border-md) !important;
+  resize: none !important;
+}
+
+/* Transitions for smooth sliding animations */
+.bb-main {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bb-footer {
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#desmos-modal {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
