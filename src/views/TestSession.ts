@@ -364,15 +364,22 @@ export function renderTestSession(): HTMLElement {
             overflow: 'hidden', resize: 'both',
           });
           modal.innerHTML = `
-            <div id="dh" style="background:#1e293b;color:#fff;padding:0.625rem 1rem;cursor:move;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0;flex-shrink:0;">
+            <div id="dh" style="background:#1e293b;color:#fff;padding:0.625rem 1rem;cursor:move;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0;flex-shrink:0;user-select:none;">
               <span style="font-size:0.875rem;font-weight:600;">Graphing Calculator</span>
-              <button id="dc" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:1rem;line-height:1;">&#10005;</button>
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <button id="d-dock" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:0.85rem;line-height:1;font-weight:600;font-family:var(--font);" title="Dock to Left side">Dock</button>
+                <button id="dc" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:1rem;line-height:1;">&#10005;</button>
+              </div>
             </div>
             <div id="desmos-calc" style="flex:1;"></div>
           `;
           document.body.appendChild(modal);
 
-          const load = () => { const el = document.getElementById('desmos-calc')!; (window as any).Desmos?.GraphingCalculator(el); };
+          let calcInstance: any = null;
+          const load = () => {
+            const el = document.getElementById('desmos-calc')!;
+            calcInstance = (window as any).Desmos?.GraphingCalculator(el);
+          };
           if (!(window as any).Desmos) {
             const s = document.createElement('script');
             s.src = 'https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
@@ -382,10 +389,44 @@ export function renderTestSession(): HTMLElement {
 
           const dh = document.getElementById('dh')!;
           let drag = false, ox = 0, oy = 0;
-          dh.addEventListener('mousedown', e => { drag = true; ox = e.clientX - modal!.offsetLeft; oy = e.clientY - modal!.offsetTop; });
-          window.addEventListener('mousemove', e => { if (drag) { modal!.style.left = `${e.clientX - ox}px`; modal!.style.top = `${e.clientY - oy}px`; modal!.style.right = 'unset'; } });
+          dh.addEventListener('mousedown', e => {
+            if (root.classList.contains('calc-docked')) return;
+            drag = true;
+            ox = e.clientX - modal!.offsetLeft;
+            oy = e.clientY - modal!.offsetTop;
+          });
+          window.addEventListener('mousemove', e => {
+            if (drag && !root.classList.contains('calc-docked')) {
+              modal!.style.left = `${e.clientX - ox}px`;
+              modal!.style.top = `${e.clientY - oy}px`;
+              modal!.style.right = 'unset';
+            }
+          });
           window.addEventListener('mouseup', () => { drag = false; });
-          document.getElementById('dc')?.addEventListener('click', () => { modal!.remove(); });
+          
+          document.getElementById('dc')?.addEventListener('click', () => {
+            root.classList.remove('calc-docked');
+            modal!.remove();
+          });
+
+          const dockBtn = document.getElementById('d-dock')!;
+          dockBtn.addEventListener('click', () => {
+            const isDocked = root.classList.toggle('calc-docked');
+            dockBtn.textContent = isDocked ? 'Float' : 'Dock';
+            if (isDocked) {
+              modal!.style.left = '';
+              modal!.style.top = '';
+            } else {
+              modal!.style.left = 'unset';
+              modal!.style.top = '70px';
+              modal!.style.right = '24px';
+              modal!.style.width = '440px';
+              modal!.style.height = '520px';
+            }
+            setTimeout(() => {
+              if (calcInstance) calcInstance.resize();
+            }, 310);
+          });
         } else {
           modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
         }
@@ -484,7 +525,13 @@ export function renderTestSession(): HTMLElement {
     }
 
     const active = document.activeElement;
-    const isSprInput = active && active.id && active.id.startsWith('spr-input-');
+    const isSprInput = !!(active && active.id && active.id.startsWith('spr-input-'));
+    
+    // If typing in SPR input, ignore all shortcut keys except Enter
+    if (isSprInput && e.key !== 'Enter') {
+      return;
+    }
+
     if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !isSprInput) {
       return;
     }

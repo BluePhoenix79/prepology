@@ -134,22 +134,30 @@
         return;
       }
       
-      const rawDomain = o.domain || o.contentDomain || o.category || o.domainCode || o.subjectCode || o.contentArea || '';
+      const rawDomain = o.domain || o.contentDomain || o.category || o.domainCode || o.subjectCode || o.contentArea || 
+                        o.domains || o.contentDomains || o.categories || '';
       if (rawDomain && !domain) {
-        domain = normalizeDomain(rawDomain) || domainFromPTN(rawDomain);
+        const val = Array.isArray(rawDomain) ? rawDomain[0] : rawDomain;
+        if (val) domain = normalizeDomain(val) || domainFromPTN(val);
       }
       
-      const rawSkill = o.skill || o.reportingCategory || o.skillCode || o.skillName || '';
+      const rawSkill = o.skill || o.reportingCategory || o.skillCode || o.skillName || 
+                       o.skills || o.reportingCategories || '';
       if (rawSkill && !skill) {
-        skill = rawSkill;
+        const val = Array.isArray(rawSkill) ? rawSkill[0] : rawSkill;
+        if (val) skill = val;
       }
       
-      const rawDiff = o.difficulty || o.difficultyBand || o.difficulty_band || o.difficultyLevel || o.difficulty_level || o.difficultyCode || o.difficulty_code || o.difficultyband || o.difficultylevel || o.difficultycode || '';
+      const rawDiff = o.difficulty || o.difficultyBand || o.difficulty_band || o.difficultyLevel || o.difficulty_level || o.difficultyCode || o.difficulty_code || o.difficultyband || o.difficultylevel || o.difficultycode || 
+                      o.difficulties || o.difficultyBands || o.difficulty_bands || o.difficultyLevels || o.difficulty_levels || '';
       if (rawDiff && !difficulty) {
-        const d = String(rawDiff).toLowerCase();
-        if (d === 'easy' || d === '1' || d === 'e') difficulty = 1;
-        else if (d === 'medium' || d === '2' || d === 'm') difficulty = 2;
-        else if (d === 'hard' || d === '3' || d === 'h') difficulty = 3;
+        const val = Array.isArray(rawDiff) ? rawDiff[0] : rawDiff;
+        if (val) {
+          const d = String(val).toLowerCase();
+          if (d === 'easy' || d === '1' || d === 'e') difficulty = 1;
+          else if (d === 'medium' || d === '2' || d === 'm') difficulty = 2;
+          else if (d === 'hard' || d === '3' || d === 'h') difficulty = 3;
+        }
       }
       
       for (const val of Object.values(o)) {
