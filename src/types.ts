@@ -18,6 +18,7 @@ export interface Question {
   correctAnswer: string; // The id of the correct option
   rationale: string;
   tags: string[];
+  official?: boolean;
 }
 
 export interface TestSession {

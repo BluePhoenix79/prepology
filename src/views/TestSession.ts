@@ -1,6 +1,11 @@
 import { store } from '../state/Store';
 import type { Question } from '../types';
 
+let currentSessionId: string | null = null;
+let currentQuestionIndex = 0;
+let isDrawerOpen = false;
+let isElimMode = false;
+
 /* ── Simple inline-math renderer: *text* → <em>, ^n → superscript, basic fractions ── */
 function renderMath(text: string): string {
   if (!text) return '';
@@ -36,6 +41,13 @@ export function renderTestSession(): HTMLElement {
 
   if (!session) { store.setView('dashboard'); return root; }
 
+  if (currentSessionId !== session.id) {
+    currentSessionId = session.id;
+    currentQuestionIndex = 0;
+    isDrawerOpen = false;
+    isElimMode = false;
+  }
+
   const qIds: string[] = (session.filteredQuestionIds?.length)
     ? session.filteredQuestionIds
     : state.questionBank.filter(q => q.section === session.currentSection).map(q => q.id);
@@ -56,11 +68,15 @@ export function renderTestSession(): HTMLElement {
     return root;
   }
 
-  let idx = 0;
-  let drawerOpen = false;
-  let elimMode = false;
+  let idx = currentQuestionIndex;
+  let drawerOpen = isDrawerOpen;
+  let elimMode = isElimMode;
 
   function draw() {
+    currentQuestionIndex = idx;
+    isDrawerOpen = drawerOpen;
+    isElimMode = elimMode;
+
     root.innerHTML = '';
 
     const q      = questions[idx];
@@ -284,9 +300,14 @@ export function renderTestSession(): HTMLElement {
       `;
 
       const inp = optsEl.querySelector(`#spr-input-${q.id}`) as HTMLInputElement;
-      inp?.addEventListener('input', e => {
-        store.answerQuestion(q.id, (e.target as HTMLInputElement).value);
-      });
+      if (inp) {
+        inp.addEventListener('change', e => {
+          store.answerQuestion(q.id, (e.target as HTMLInputElement).value);
+        });
+        inp.addEventListener('blur', e => {
+          store.answerQuestion(q.id, (e.target as HTMLInputElement).value);
+        });
+      }
     }
 
     /* ───── ACTION AREA ───── */
