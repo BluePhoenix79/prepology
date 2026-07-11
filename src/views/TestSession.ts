@@ -403,12 +403,16 @@ export function renderTestSession(): HTMLElement {
           const onMouseUp = () => {
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
+            const calc = document.getElementById('desmos-calc');
+            if (calc) calc.style.pointerEvents = 'auto';
           };
 
           dh.addEventListener('mousedown', e => {
             if (document.body.classList.contains('calc-docked')) return;
             ox = e.clientX - modal!.offsetLeft;
             oy = e.clientY - modal!.offsetTop;
+            const calc = document.getElementById('desmos-calc');
+            if (calc) calc.style.pointerEvents = 'none';
             window.addEventListener('mousemove', onMouseMove);
             window.addEventListener('mouseup', onMouseUp);
           });
