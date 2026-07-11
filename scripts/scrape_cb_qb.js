@@ -22,6 +22,7 @@
 
   window.__CB_QUESTIONS__ = window.__CB_QUESTIONS__ || new Map();
   window.__CB_RAW_RESPONSES__ = window.__CB_RAW_RESPONSES__ || [];
+  window.__CB_METADATA__ = window.__CB_METADATA__ || new Map();
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Utility: strip HTML tags and decode entities, preserving $ LaTeX $
@@ -143,12 +144,12 @@
         skill = rawSkill;
       }
       
-      const rawDiff = o.difficulty || o.difficultyBand || o.difficultyLevel || o.difficultyCode || '';
+      const rawDiff = o.difficulty || o.difficultyBand || o.difficulty_band || o.difficultyLevel || o.difficulty_level || o.difficultyCode || o.difficulty_code || o.difficultyband || o.difficultylevel || o.difficultycode || '';
       if (rawDiff && !difficulty) {
         const d = String(rawDiff).toLowerCase();
-        if (d === 'easy' || d === '1') difficulty = 1;
-        else if (d === 'medium' || d === '2') difficulty = 2;
-        else if (d === 'hard' || d === '3') difficulty = 3;
+        if (d === 'easy' || d === '1' || d === 'e') difficulty = 1;
+        else if (d === 'medium' || d === '2' || d === 'm') difficulty = 2;
+        else if (d === 'hard' || d === '3' || d === 'h') difficulty = 3;
       }
       
       for (const val of Object.values(o)) {
@@ -215,12 +216,14 @@
   // ─────────────────────────────────────────────────────────────────────────────
   function mapQuestion(raw, parentMeta) {
     // ── ID ──────────────────────────────────────────────────────────────────────
-    // CB API uses lowercase 'externalid' and also 'vaultid'
-    const id = raw.externalid || raw.externalId || raw.questionId || raw.id || raw.vaultid || raw.itemId || null;
+    const id = raw.externalid || raw.externalId || raw.external_id || raw.questionId || raw.question_id || raw.id || raw.vaultid || raw.vault_id || raw.itemId || raw.item_id || null;
     if (!id) return null;
+
+    const metadata = (window.__CB_METADATA__ && window.__CB_METADATA__.get(String(id))) || {};
 
     // ── Domain — CB stores this at PARENT level (URL params, wrapper object, or PTN code)
     const rawDomain =
+      metadata.domain ||
       (parentMeta && parentMeta.domain) ||
       (parentMeta && parentMeta.contentDomain) ||
       raw.domain ||
@@ -242,11 +245,25 @@
     const section = isMath ? 'Math' : 'Reading and Writing';
 
     // ── Difficulty ────────────────────────────────────────────────────────────────
-    let difficulty = (parentMeta && parentMeta.difficulty) || 2;
-    const diff = (raw.difficulty || raw.difficultyBand || raw.difficultyLevel || raw.difficultyCode || '').toString().toLowerCase();
-    if (diff === '1' || diff === 'easy' || diff === 'e') difficulty = 1;
-    else if (diff === '3' || diff === 'hard' || diff === 'h') difficulty = 3;
-    else if (diff === '2' || diff === 'medium' || diff === 'm') difficulty = 2;
+    let difficulty = metadata.difficulty || (parentMeta && parentMeta.difficulty) || 2;
+    if (!difficulty || difficulty === 2) {
+      const diff = (
+        raw.difficulty ||
+        raw.difficultyBand ||
+        raw.difficulty_band ||
+        raw.difficultyLevel ||
+        raw.difficulty_level ||
+        raw.difficultyCode ||
+        raw.difficulty_code ||
+        raw.difficultyband ||
+        raw.difficultylevel ||
+        raw.difficultycode ||
+        ''
+      ).toString().toLowerCase();
+      if (diff === '1' || diff === 'easy' || diff === 'e') difficulty = 1;
+      else if (diff === '3' || diff === 'hard' || diff === 'h') difficulty = 3;
+      else if (diff === '2' || diff === 'medium' || diff === 'm') difficulty = 2;
+    }
 
     // ── Question text (stem) ──────────────────────────────────────────────────────
     // CB uses: stem, body, question, prompt, itemStem, questionText
@@ -256,9 +273,13 @@
       raw.question ||
       raw.prompt ||
       raw.itemStem ||
+      raw.item_stem ||
       raw.questionText ||
+      raw.question_text ||
       raw.questionStem ||
+      raw.question_stem ||
       raw.questionContent ||
+      raw.question_content ||
       '';
     const questionText = clean(typeof rawStem === 'object' ? JSON.stringify(rawStem) : rawStem);
 
@@ -268,9 +289,13 @@
       raw.passage ||
       raw.context ||
       raw.sharedPassage ||
+      raw.shared_passage ||
       raw.passageText ||
+      raw.passage_text ||
       raw.readingPassage ||
+      raw.reading_passage ||
       raw.primaryText ||
+      raw.primary_text ||
       raw.excerpt ||
       '';
     const passageText = clean(typeof rawPassage === 'object' ? JSON.stringify(rawPassage) : rawPassage) || null;
@@ -279,7 +304,9 @@
     // CB uses 'answerOptions' with {id: UUID, content: HTML} — UUIDs are positional
     const rawChoices =
       raw.answerOptions ||
+      raw.answer_options ||
       raw.answerChoices ||
+      raw.answer_choices ||
       raw.choices ||
       raw.options ||
       raw.answers ||
@@ -320,7 +347,7 @@
       }
     } else {
       // Fallback to older field names
-      const ca = raw.correctAnswer || raw.answer || raw.correctChoice || raw.answerKey || '';
+      const ca = raw.correctAnswer || raw.correct_answer_field || raw.answer || raw.correctChoice || raw.correct_choice || raw.answerKey || raw.answer_key || '';
       if (typeof ca === 'string') {
         correctAnswer = ca.trim().toUpperCase().replace(/^CHOICE_?/i, '').charAt(0);
       }
@@ -340,6 +367,7 @@
 
     // ── Skill ─────────────────────────────────────────────────────────────────────
     const rawSkill =
+      metadata.skill ||
       raw.skill ||
       raw.skillDescription ||
       raw.primarySkill?.description ||
@@ -350,7 +378,7 @@
       '';
     const skill = rawSkill || classifySkill(section, domain, questionText + ' ' + rationale);
 
-    if (!questionText && options.length === 0) return null;
+    if (!questionText && !passageText && options.length === 0) return null;
 
     return {
       id: String(id),
@@ -365,19 +393,17 @@
       rationale,
       official: true,
       tags: [domain, skill].filter(Boolean),
+      _raw: raw,
     };
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // CB-specific question detector — uses the EXACT fields we confirmed from inspectRaw()
+  // CB-specific question detector
   // ─────────────────────────────────────────────────────────────────────────────
   function looksLikeQuestion(obj) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
-    // Must-have: the CB lowercase externalid OR vaultid
-    const hasCBId = !!(obj.externalid || obj.vaultid || obj.questionId || obj.externalId || obj.itemId);
-    // Must-have: question content (stem) OR answer options
-    const hasCBContent = !!(obj.stem || obj.answerOptions || obj.correct_answer || obj.keys);
-    return hasCBId && hasCBContent;
+    // If it has any sort of ID, it might be a question. We will let mapQuestion decide.
+    return !!(obj.externalid || obj.external_id || obj.vaultid || obj.vault_id || obj.questionId || obj.question_id || obj.externalId || obj.itemId || obj.item_id || obj.id);
   }
 
   // Visited set to avoid re-processing the same object (WeakSet has no .clear() — use let + reassign)
@@ -390,10 +416,38 @@
     if (_visited.has(obj)) return;
     _visited.add(obj);
 
+    // Save metadata if this object has an ID and some metadata fields
+    const id = obj.externalid || obj.external_id || obj.vaultid || obj.vault_id || obj.questionId || obj.question_id || obj.externalId || obj.itemId || obj.item_id || obj.id;
+    if (id) {
+      const rawDiff = obj.difficulty || obj.difficultyBand || obj.difficulty_band || obj.difficultyLevel || obj.difficulty_level || obj.difficultyCode || obj.difficulty_code || obj.difficultyband || obj.difficultylevel || obj.difficultycode;
+      const rawDomain = obj.domain || obj.contentDomain || obj.category || obj.domainCode || obj.subjectCode || obj.contentArea || '';
+      const rawSkill = obj.skill || obj.reportingCategory || obj.skillCode || obj.skillName || '';
+
+      if (rawDiff || rawDomain || rawSkill) {
+        let difficultyVal = 0;
+        if (rawDiff) {
+          const d = String(rawDiff).toLowerCase();
+          if (d === 'easy' || d === '1' || d === 'e') difficultyVal = 1;
+          else if (d === 'medium' || d === '2' || d === 'm') difficultyVal = 2;
+          else if (d === 'hard' || d === '3' || d === 'h') difficultyVal = 3;
+        }
+
+        const domainVal = normalizeDomain(rawDomain);
+        const skillVal = rawSkill;
+
+        const existingMeta = window.__CB_METADATA__.get(String(id)) || {};
+        window.__CB_METADATA__.set(String(id), {
+          difficulty: difficultyVal || existingMeta.difficulty || 0,
+          domain: domainVal || existingMeta.domain || '',
+          skill: skillVal || existingMeta.skill || '',
+        });
+      }
+    }
+
     // ← KEY FIX: check the TOP-LEVEL object itself before walking into it
     if (!Array.isArray(obj) && looksLikeQuestion(obj)) {
       const mapped = mapQuestion(obj, parentMeta);
-      if (mapped && (mapped.questionText || mapped.options.length > 0)) {
+      if (mapped && (mapped.questionText || mapped.passageText || mapped.options.length > 0)) {
         window.__CB_QUESTIONS__.set(mapped.id, mapped);
       }
     }
@@ -403,7 +457,7 @@
         if (item && typeof item === 'object') {
           if (looksLikeQuestion(item)) {
             const mapped = mapQuestion(item, parentMeta);
-            if (mapped && (mapped.questionText || mapped.options.length > 0)) {
+            if (mapped && (mapped.questionText || mapped.passageText || mapped.options.length > 0)) {
               window.__CB_QUESTIONS__.set(mapped.id, mapped);
             }
           }
@@ -430,7 +484,7 @@
       }
       if (looksLikeQuestion(val)) {
         const mapped = mapQuestion(val, localMeta);
-        if (mapped && (mapped.questionText || mapped.options.length > 0)) {
+        if (mapped && (mapped.questionText || mapped.passageText || mapped.options.length > 0)) {
           window.__CB_QUESTIONS__.set(mapped.id, mapped);
         }
       }
@@ -618,6 +672,7 @@
   // Force re-run extraction on all captured raw responses
   window.reprocess = function () {
     const before = window.__CB_QUESTIONS__.size;
+    window.__CB_METADATA__ = new Map(); // Clear and rebuild metadata!
     window.__CB_RAW_RESPONSES__.forEach(r => processResponse(r.url, r.data));
     doFiberScan();
     console.log(`Reprocessed ${window.__CB_RAW_RESPONSES__.length} responses. Questions: ${before} → ${window.__CB_QUESTIONS__.size}`);

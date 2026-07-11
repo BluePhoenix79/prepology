@@ -201,27 +201,30 @@ if (fs.existsSync(OUTPUT_FILE)) {
   }
 }
 
-// Remove old official questions (to allow re-importing updates)
+// Keep existing official questions that are NOT in the new import file
+const newOfficialIds = new Set(normalized.map(q => q.id));
+const existingOfficialToKeep = existing.filter(q => q.official && !newOfficialIds.has(q.id));
 const nonOfficial = existing.filter(q => !q.official);
-const existingOfficialIds = new Set(existing.filter(q => q.official).map(q => q.id));
 
-// Merge: deduplicate by ID
-const newOfficialIds = new Set();
-const deduped = normalized.filter(q => {
-  if (newOfficialIds.has(q.id)) return false;
-  newOfficialIds.add(q.id);
-  return true;
-});
+// Merge: deduplicate by ID for new questions
+const dedupedNew = [];
+const seenNewIds = new Set();
+for (const q of normalized) {
+  if (!seenNewIds.has(q.id)) {
+    seenNewIds.add(q.id);
+    dedupedNew.push(q);
+  }
+}
 
-const merged = [...nonOfficial, ...deduped];
-const replaced = existing.filter(q => q.official).filter(q => newOfficialIds.has(q.id)).length;
+const merged = [...nonOfficial, ...existingOfficialToKeep, ...dedupedNew];
+const replaced = existing.filter(q => q.official && newOfficialIds.has(q.id)).length;
 
 fs.writeFileSync(OUTPUT_FILE, JSON.stringify(merged, null, 2), 'utf8');
 
 console.log(`
 ✅ Done!
    Drill questions kept:      ${nonOfficial.length}
-   Official questions merged: ${deduped.length} (${replaced} updated)
+   Official questions merged: ${dedupedNew.length} (${replaced} updated)
    Total questions now:       ${merged.length}
 
    Saved to: src/data/questions.json
