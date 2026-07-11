@@ -680,7 +680,7 @@
   // Force re-run extraction on all captured raw responses
   window.reprocess = function () {
     const before = window.__CB_QUESTIONS__.size;
-    window.__CB_METADATA__ = new Map(); // Clear and rebuild metadata!
+    // Keep existing metadata (like table-scraped difficulties) intact
     window.__CB_RAW_RESPONSES__.forEach(r => processResponse(r.url, r.data, r.requestMeta));
     doFiberScan();
     console.log(`Reprocessed ${window.__CB_RAW_RESPONSES__.length} responses. Questions: ${before} → ${window.__CB_QUESTIONS__.size}`);
