@@ -107,7 +107,7 @@ class Store {
     this.notify();
   }
 
-  public startSession(section: TestSession['currentSection'], difficulty?: number, domain?: string, skill?: string, isOfficial?: boolean) {
+  public startSession(section: TestSession['currentSection'], difficulty?: number, domain?: string, skill?: string, isOfficial?: boolean, randomize?: boolean) {
     let filtered = this.state.questionBank.filter(q => q.section === section);
     if (isOfficial !== undefined) {
       filtered = filtered.filter(q => !!q.official === isOfficial);
@@ -120,6 +120,13 @@ class Store {
     }
     if (skill && skill !== 'All') {
       filtered = filtered.filter(q => q.skill === skill);
+    }
+    
+    if (randomize) {
+      for (let i = filtered.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+      }
     }
     
     this.state.session = {

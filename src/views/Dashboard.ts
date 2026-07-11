@@ -4,6 +4,7 @@ import type { Question } from '../types';
 let activeSection: 'Math' | 'Reading and Writing' = 'Reading and Writing';
 let activeDifficulty: number = 0; // 0 = All, 1 = Easy, 2 = Medium, 3 = Hard
 let activeSource: 'drills' | 'official' = 'drills';
+let shouldRandomize: boolean = false;
 
 export function renderDashboard(): HTMLElement {
   const root = document.createElement('div');
@@ -43,9 +44,9 @@ export function renderDashboard(): HTMLElement {
       <div class="op-header">
         <h1 class="op-title">${activeSection === 'Math' ? 'Mathematics' : 'Reading & Writing'}</h1>
         <div class="op-header-actions">
-          <div class="op-search-box">
-            <input type="text" id="qb-id-search" class="op-search-input" placeholder="Search CB Question ID..." autocomplete="off" />
-            <button id="qb-search-btn" class="op-search-btn">Go</button>
+          <div class="op-random-toggle" style="display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;font-weight:600;color:var(--c-text-2);">
+            <input type="checkbox" id="randomize-checkbox" style="width:16px;height:16px;cursor:pointer;" ${shouldRandomize ? 'checked' : ''} />
+            <label for="randomize-checkbox" style="cursor:pointer;user-select:none;color:var(--c-text);">Randomize Order</label>
           </div>
           <div class="op-filter-dropdown">
             <label for="difficulty-select" class="op-select-label">Filters</label>
@@ -159,29 +160,14 @@ export function renderDashboard(): HTMLElement {
       draw();
     });
 
-    // Handle Search by ID
-    const searchInp = root.querySelector('#qb-id-search') as HTMLInputElement;
-    const searchBtn = root.querySelector('#qb-search-btn');
-
-    const handleSearch = () => {
-      const val = searchInp.value.trim().toLowerCase();
-      if (!val) return;
-      const latestQB = store.getState().questionBank;
-      const found = latestQB.find(q => q.id.toLowerCase() === val);
-      if (found) {
-        store.startTargetedSession([{ id: found.id, section: found.section }]);
-      } else {
-        alert(`Question ID "${searchInp.value.trim()}" not found in database. Make sure it is a valid 8-character ID.`);
-      }
-    };
-
-    searchBtn?.addEventListener('click', handleSearch);
-    searchInp?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleSearch();
+    // Handle Randomize Order Checkbox
+    const randCheckbox = root.querySelector('#randomize-checkbox') as HTMLInputElement;
+    randCheckbox?.addEventListener('change', (e) => {
+      shouldRandomize = (e.target as HTMLInputElement).checked;
     });
 
     root.querySelector('#btn-practice-all')?.addEventListener('click', () => {
-      store.startSession(activeSection, activeDifficulty, undefined, undefined, activeSource === 'official');
+      store.startSession(activeSection, activeDifficulty, undefined, undefined, activeSource === 'official', shouldRandomize);
     });
 
     root.querySelectorAll('.op-skill-row').forEach(row => {
@@ -190,7 +176,7 @@ export function renderDashboard(): HTMLElement {
         if (target.classList.contains('disabled')) return;
         const domain = target.dataset.domain;
         const skill = target.dataset.skill;
-        store.startSession(activeSection, activeDifficulty, domain, skill, activeSource === 'official');
+        store.startSession(activeSection, activeDifficulty, domain, skill, activeSource === 'official', shouldRandomize);
       });
     });
   }

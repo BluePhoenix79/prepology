@@ -477,6 +477,60 @@ export function renderTestSession(): HTMLElement {
     }, 10);
   }
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (store.getState().currentView !== 'test') {
+      window.removeEventListener('keydown', handleKeyDown);
+      return;
+    }
+
+    const active = document.activeElement;
+    const isSprInput = active && active.id && active.id.startsWith('spr-input-');
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && !isSprInput) {
+      return;
+    }
+
+    const q = questions[idx];
+    const sess = store.getState().session!;
+    if (!sess) return;
+    const checked = sess.checked ?? new Set<string>();
+    const isChecked = checked.has(q.id);
+    const selected = sess.answers[q.id];
+
+    // MCQ keys
+    if (!isChecked && q.options && q.options.length > 0) {
+      const key = e.key.toUpperCase();
+      if (['A', 'B', 'C', 'D'].includes(key)) {
+        const opt = q.options.find(o => o.id === key);
+        const isEliminated = sess.eliminatedOptions[q.id]?.has(opt?.id || '');
+        if (opt && !isEliminated) {
+          store.answerQuestion(q.id, opt.id);
+          draw();
+          return;
+        }
+      }
+    }
+
+    // Enter actions
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selected && !isChecked) {
+        store.checkAnswer(q.id);
+        draw();
+      } else if (isChecked) {
+        const isLast = idx === questions.length - 1;
+        if (isLast) {
+          store.endSession();
+        } else {
+          idx++;
+          currentQuestionIndex = idx;
+          draw();
+        }
+      }
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+
   draw();
   return root;
 }

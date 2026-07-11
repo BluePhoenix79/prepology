@@ -1152,21 +1152,20 @@ select:focus, input:focus {
   font-weight: 600;
 }
 .op-select {
-  background: var(--c-elevated);
-  border: 1px solid var(--c-border-md);
+  background: #ffffff;
+  border: 1px solid #ccc;
   border-radius: 6px;
-  padding: 0.35rem 1.75rem 0.35rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--c-text);
+  color: #000000;
   cursor: pointer;
   outline: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238fa3be' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.5rem center;
-  background-size: 10px;
+  background-image: none;
   min-width: 140px;
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 
 /* Practice Hero block - Glassmorphism */
