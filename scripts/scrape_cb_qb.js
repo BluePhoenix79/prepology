@@ -227,7 +227,7 @@
     const id = raw.externalid || raw.externalId || raw.external_id || raw.questionId || raw.question_id || raw.id || raw.vaultid || raw.vault_id || raw.itemId || raw.item_id || null;
     if (!id) return null;
 
-    const metadata = (window.__CB_METADATA__ && window.__CB_METADATA__.get(String(id))) || {};
+    const metadata = (window.__CB_METADATA__ && (window.__CB_METADATA__.get(String(id)) || window.__CB_METADATA__.get(String(id).substring(0, 8)))) || {};
 
     // ── Domain — CB stores this at PARENT level (URL params, wrapper object, or PTN code)
     const rawDomain =
