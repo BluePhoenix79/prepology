@@ -16,11 +16,44 @@ const VOCAB = [
   { word: 'Laconic',       def: 'Using very few words; brief and concise.',                                    ex: 'His laconic reply—"I\'ll try"—left little room for optimism.' },
   { word: 'Loquacious',    def: 'Tending to talk a great deal; talkative.',                                    ex: 'The loquacious host kept the party energized with endless anecdotes.' },
   { word: 'Solicitous',    def: 'Showing interest or concern; anxious about someone\'s wellbeing.',            ex: 'The nurse was solicitous of the patient\'s comfort throughout treatment.' },
+  { word: 'Anomalous',     def: 'Deviating from what is standard, normal, or expected.',                        ex: 'The scientists noted an anomalous temperature reading in the Arctic.' },
+  { word: 'Assiduous',     def: 'Showing great care and perseverance.',                                        ex: 'She was assiduous in her prep, spending hours reviewing every question.' },
+  { word: 'Capricious',    def: 'Given to sudden and unaccountable changes of mood or behavior.',              ex: 'The administration made capricious decisions that confused teachers.' },
+  { word: 'Chicanery',     def: 'The use of trickery to achieve a political, financial, or legal purpose.',    ex: 'The lawyer exposed the corporate chicanery behind the secret merger.' },
+  { word: 'Diatribe',      def: 'A forceful and bitter verbal attack against someone or something.',            ex: 'The columnist wrote a harsh diatribe criticizing the new transit plan.' },
+  { word: 'Egregious',     def: 'Outstandingly bad; shocking.',                                                ex: 'The editor made an egregious typo on the front page of the magazine.' },
+  { word: 'Eschew',        def: 'Deliberately avoid using; abstain from.',                                     ex: 'Strict athletes eschew processed foods in favor of whole ingredients.' },
+  { word: 'Fastidious',    def: 'Very attentive to and concerned about accuracy and detail.',                  ex: 'The fastidious gardener trimmed every hedge to a perfect geometric angle.' },
+  { word: 'Garrulous',     def: 'Excessively talkative, especially on trivial matters.',                       ex: 'He became garrulous after a few cups of coffee, talking for hours.' },
+  { word: 'Iconoclast',    def: 'A person who attacks cherished beliefs or institutions.',                     ex: 'The modern artist was hailed as an iconoclast who challenged conventions.' },
+  { word: 'Impulsive',     def: 'Acting or done without forethought.',                                         ex: 'His impulsive purchase of a sports car shocked his family.' },
+  { word: 'Inchoate',      def: 'Just begun and so not fully formed or developed; rudimentary.',               ex: 'She voiced an inchoate idea that needed much more development.' },
+  { word: 'Incipient',     def: 'In an initial stage; beginning to happen or develop.',                         ex: 'We noticed the incipient signs of recovery in the local housing market.' },
+  { word: 'Intractable',   def: 'Hard to control or deal with; stubborn.',                                     ex: 'The dispute proved to be intractable, defying all attempts at mediation.' },
+  { word: 'Intransigent',  def: 'Unwilling or refusing to change one\'s views or to agree.',                   ex: 'The union remained intransigent, refusing the management\'s final offer.' },
+  { word: 'Inveterate',    def: 'Having a particular habit or interest that is long-established.',             ex: 'As an inveterate reader, he never left home without a book.' },
+  { word: 'Maverick',      def: 'An unorthodox or independent-minded person.',                                 ex: 'The senator was known as a maverick who regularly voted against his party.' },
+  { word: 'Mendacious',    def: 'Not telling the truth; lying.',                                               ex: 'The report was filled with mendacious claims designed to mislead investors.' },
+  { word: 'Nefarious',     def: 'Wicked, evil, or criminal.',                                                  ex: 'The plotters met in secret to draft their nefarious scheme.' },
+  { word: 'Obsequious',    def: 'Obedient or attentive to an excessive or servile degree.',                    ex: 'The servers were obsequious, hovering constantly around the VIP table.' },
+  { word: 'Ostentatious',  def: 'Characterized by vulgar or pretentious display; designed to impress.',        ex: 'Her ostentatious gold jewelry attracted a lot of unwanted attention.' },
+  { word: 'Paucity',       def: 'The presence of something only in small or insufficient quantities.',         ex: 'There is a paucity of reliable data on the new drug\'s side effects.' },
+  { word: 'Pristine',      def: 'In its original condition; clean and fresh as if new.',                        ex: 'The forest was in a pristine state, untouched by logging or roads.' },
+  { word: 'Proclivity',    def: 'A tendency to choose or do something regularly; inclination.',                ex: 'He has a strong proclivity for taking risks, especially in business.' },
+  { word: 'Querulous',     def: 'Complaining in a petulant or whining manner.',                                ex: 'The querulous passenger grumbled about the minor flight delay.' },
+  { word: 'Recalcitrant',  def: 'Obstinately uncooperative toward authority or discipline.',                   ex: 'The recalcitrant horse refused to follow the rider\'s command.' },
+  { word: 'Sanguine',      def: 'Optimistic or positive, especially in a bad situation.',                      ex: 'Despite the early losses, the coach remained sanguine about the finals.' },
+  { word: 'Taciturn',      def: 'Reserved or uncommunicative in speech; saying little.',                       ex: 'He was a taciturn man who preferred listening to speaking.' },
+  { word: 'Tenuous',       def: 'Very weak, slight, or fragile.',                                              ex: 'The coalition held a tenuous majority of only one vote in parliament.' },
+  { word: 'Transient',     def: 'Lasting only for a short time; impermanent.',                                 ex: 'The storm was transient, leaving behind clear blue skies in an hour.' },
+  { word: 'Vacillate',     def: 'Alternate or waver between different opinions or actions.',                   ex: 'She began to vacillate between staying or taking the new job offer.' },
+  { word: 'Venerate',      def: 'Regard with great respect; revere.',                                          ex: 'Many cultures venerate their elders as sources of ancient wisdom.' },
+  { word: 'Vociferous',    def: 'Vehement or clamorous; expressing opinions loudly.',                          ex: 'The proposal met with vociferous opposition from local residents.' },
 ];
 
 let idx = 0;
 let flipped = false;
-let filterMode: 'all' | 'saved' = 'all';
+let filterMode: 'all' | 'saved' | 'learned' = 'all';
 
 function getBookmarkedVocab(): string[] {
   try {
@@ -41,6 +74,25 @@ function toggleBookmark(word: string) {
   localStorage.setItem('prepology_vocab_bookmarks', JSON.stringify(list));
 }
 
+function getLearnedVocab(): string[] {
+  try {
+    const list = localStorage.getItem('prepology_vocab_learned');
+    return list ? JSON.parse(list) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function toggleLearned(word: string) {
+  let list = getLearnedVocab();
+  if (list.includes(word)) {
+    list = list.filter(w => w !== word);
+  } else {
+    list.push(word);
+  }
+  localStorage.setItem('prepology_vocab_learned', JSON.stringify(list));
+}
+
 export function renderVocab(): HTMLElement {
   const root = document.createElement('div');
   root.className = 'page-root';
@@ -49,10 +101,20 @@ export function renderVocab(): HTMLElement {
   function draw() {
     root.innerHTML = '';
     const bookmarks = getBookmarkedVocab();
+    const learned = getLearnedVocab();
 
-    const filteredList = filterMode === 'all' 
-      ? VOCAB 
-      : VOCAB.filter(w => bookmarks.includes(w.word));
+    let filteredList = VOCAB;
+    if (filterMode === 'all') {
+      filteredList = VOCAB.filter(w => !learned.includes(w.word));
+      if (filteredList.length === 0 && VOCAB.length > 0) {
+        // Fallback to show all if all words are marked as learned
+        filteredList = VOCAB;
+      }
+    } else if (filterMode === 'saved') {
+      filteredList = VOCAB.filter(w => bookmarks.includes(w.word));
+    } else if (filterMode === 'learned') {
+      filteredList = VOCAB.filter(w => learned.includes(w.word));
+    }
 
     if (idx >= filteredList.length) {
       idx = Math.max(0, filteredList.length - 1);
@@ -61,17 +123,19 @@ export function renderVocab(): HTMLElement {
     const hasWords = filteredList.length > 0;
     const w = hasWords ? filteredList[idx] : null;
     const isBookmarked = w ? bookmarks.includes(w.word) : false;
+    const isLearned = w ? learned.includes(w.word) : false;
 
     root.innerHTML = `
       <div class="page-topbar">
         <div>
           <h1>Vocabulary Flashcards</h1>
-          <p>Study key digital SAT vocabulary words · ${bookmarks.length} bookmarked</p>
+          <p>Study key digital SAT vocabulary words · ${bookmarks.length} bookmarked · ${learned.length} learned</p>
         </div>
         <div style="display:flex;gap:0.75rem;align-items:center;">
           <select id="vocab-filter-select" class="op-select" style="font-size:0.85rem;padding:0.25rem 1.5rem 0.25rem 0.5rem;background:#1e293b;border:1px solid #475569;color:#fff;">
-            <option value="all" ${filterMode === 'all' ? 'selected' : ''}>Show: All Words (${VOCAB.length})</option>
-            <option value="saved" ${filterMode === 'saved' ? 'selected' : ''}>Show: Bookmarked (${bookmarks.length})</option>
+            <option value="all" ${filterMode === 'all' ? 'selected' : ''}>Study Deck (Unlearned: ${VOCAB.filter(w => !learned.includes(w.word)).length})</option>
+            <option value="saved" ${filterMode === 'saved' ? 'selected' : ''}>Bookmarked (${bookmarks.length})</option>
+            <option value="learned" ${filterMode === 'learned' ? 'selected' : ''}>Learned Words (${learned.length})</option>
           </select>
           <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">← Dashboard</button>
         </div>
@@ -83,29 +147,34 @@ export function renderVocab(): HTMLElement {
           <div class="vocab-scene">
             <div class="vocab-card ${flipped ? 'flipped' : ''}" id="card">
 
-              <div class="vocab-face vocab-front">
+              <div class="vocab-face vocab-front" style="background: linear-gradient(135deg, var(--c-surface) 0%, var(--c-card) 100%);">
                 <div style="position:absolute;top:1rem;right:1rem;z-index:100;cursor:pointer;" id="bookmark-toggle" title="Bookmark word">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="${isBookmarked ? '#f59e0b' : 'none'}" stroke="${isBookmarked ? '#f59e0b' : 'currentColor'}" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 </div>
                 <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--c-text-3);margin-bottom:0.875rem;">Word ${idx + 1} of ${filteredList.length}</p>
-                <h2 style="font-size:2.25rem;font-weight:800;letter-spacing:-0.03em;color:var(--c-blue);line-height:1.1;">${w.word}</h2>
-                <p style="margin-top:1rem;font-size:0.8rem;color:var(--c-text-3);">Click card or press Flip button to reveal definition</p>
+                <h2 style="font-size:2.5rem;font-weight:800;letter-spacing:-0.03em;color:var(--c-blue);line-height:1.1;">${w.word}</h2>
+                <p style="margin-top:1rem;font-size:0.8rem;color:var(--c-text-3);">Click card or press spacebar to reveal definition</p>
               </div>
 
-              <div class="vocab-face vocab-back">
+              <div class="vocab-face vocab-back" style="background: var(--c-card);">
                 <div style="position:absolute;top:1rem;right:1rem;z-index:100;cursor:pointer;" id="bookmark-toggle-back" title="Bookmark word">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="${isBookmarked ? '#f59e0b' : 'none'}" stroke="${isBookmarked ? '#f59e0b' : 'currentColor'}" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 </div>
-                <h3 style="font-size:1.1rem;font-weight:800;color:var(--c-blue);margin-bottom:0.75rem;">${w.word}</h3>
+                <h3 style="font-size:1.25rem;font-weight:800;color:var(--c-blue);margin-bottom:0.75rem;">${w.word}</h3>
                 <p style="font-size:1rem;line-height:1.65;color:var(--c-text);margin-bottom:0.875rem;">${w.def}</p>
                 <p style="font-size:0.875rem;font-style:italic;line-height:1.55;color:var(--c-text-2);border-top:1px dashed var(--c-border);padding-top:0.75rem;margin-top:0.5rem;">"${w.ex}"</p>
+                <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center;" id="learned-action">
+                  <button class="btn btn-ghost mark-learned-btn" style="font-size: 0.75rem; padding: 0.3rem 0.65rem; border-radius: 6px; border: 1px solid var(--c-border); color: ${isLearned ? 'var(--c-amber)' : 'var(--c-green)'}; background: transparent; cursor: pointer; font-family: var(--font);">
+                    ${isLearned ? '↩ Move to Study Deck' : '✓ Mark as Learned'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           <div style="display:flex;gap:0.75rem;align-items:center;">
             <button class="btn-ghost btn" id="prev-btn" ${idx === 0 ? 'disabled' : ''} style="font-size:0.875rem;">← Prev</button>
-            <button class="btn-ghost btn" id="flip-btn" style="font-size:0.875rem;">Flip</button>
+            <button class="btn-ghost btn" id="flip-btn" style="font-size:0.875rem;">Flip (Space)</button>
             <button class="btn" id="next-btn" ${idx === filteredList.length - 1 ? 'disabled' : ''} style="font-size:0.875rem;">Next →</button>
           </div>
 
@@ -113,9 +182,9 @@ export function renderVocab(): HTMLElement {
             ${filteredList.map((_, i) => `<div class="vocab-dot${i === idx ? ' active' : ''}"></div>`).join('')}
           </div>
         ` : `
-          <div class="glass empty-state" style="padding: 3rem; text-align: center; max-width: 400px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;">
-            <h2>No bookmarked words</h2>
-            <p style="color: #64748b; margin-top: 0.5rem; font-size: 0.9rem;">Bookmark words during study to review them here.</p>
+          <div class="glass empty-state" style="padding: 3rem; text-align: center; max-width: 400px; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 12px; font-family: var(--font);">
+            <h2>No words found</h2>
+            <p style="color: var(--c-text-2); margin-top: 0.5rem; font-size: 0.9rem;">There are no words matching the selected filter in your deck.</p>
           </div>
         `}
       </div>
@@ -132,9 +201,8 @@ export function renderVocab(): HTMLElement {
     if (hasWords && w) {
       const handleFlip = () => { flipped = !flipped; draw(); };
       root.querySelector('#card')?.addEventListener('click', (e) => {
-        // Prevent flipping if they clicked the bookmark star
         const target = e.target as HTMLElement;
-        if (target.closest('#bookmark-toggle') || target.closest('#bookmark-toggle-back')) return;
+        if (target.closest('#bookmark-toggle') || target.closest('#bookmark-toggle-back') || target.closest('#learned-action')) return;
         handleFlip();
       });
       root.querySelector('#flip-btn')?.addEventListener('click', handleFlip);
@@ -146,10 +214,55 @@ export function renderVocab(): HTMLElement {
       root.querySelector('#bookmark-toggle')?.addEventListener('click', handleBookmarkToggle);
       root.querySelector('#bookmark-toggle-back')?.addEventListener('click', handleBookmarkToggle);
 
+      root.querySelector('.mark-learned-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLearned(w.word);
+        draw();
+      });
+
       root.querySelector('#prev-btn')?.addEventListener('click', () => { if (idx > 0) { idx--; flipped = false; draw(); } });
       root.querySelector('#next-btn')?.addEventListener('click', () => { if (idx < filteredList.length - 1) { idx++; flipped = false; draw(); } });
     }
   }
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (store.getState().currentView !== 'vocab') {
+      window.removeEventListener('keydown', handleKeyDown);
+      return;
+    }
+    const bookmarks = getBookmarkedVocab();
+    const learned = getLearnedVocab();
+
+    let list = VOCAB;
+    if (filterMode === 'all') {
+      list = VOCAB.filter(w => !learned.includes(w.word));
+      if (list.length === 0 && VOCAB.length > 0) list = VOCAB;
+    } else if (filterMode === 'saved') {
+      list = VOCAB.filter(w => bookmarks.includes(w.word));
+    } else if (filterMode === 'learned') {
+      list = VOCAB.filter(w => learned.includes(w.word));
+    }
+
+    if (e.key === ' ') {
+      e.preventDefault();
+      flipped = !flipped;
+      draw();
+    } else if (e.key === 'ArrowRight') {
+      if (idx < list.length - 1) {
+        idx++;
+        flipped = false;
+        draw();
+      }
+    } else if (e.key === 'ArrowLeft') {
+      if (idx > 0) {
+        idx--;
+        flipped = false;
+        draw();
+      }
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
 
   draw();
   return root;

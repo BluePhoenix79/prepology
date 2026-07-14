@@ -9,9 +9,10 @@ let isElimMode = false;
 // Persistent timer states across renders
 let isTimerPaused = false;
 let isTimerHidden = false;
-let questionAccumulatedTime = 0;
 let lastTimerTick = Date.now();
 let lastRenderedIdx = -1;
+let questionTimerEl: HTMLElement | null = null;
+let timerInterval: ReturnType<typeof setInterval> | null = null;
 
 /* ── Simple inline-math renderer: *text* → <em>, ^n → superscript, basic fractions ── */
 function renderMath(text: string): string {
@@ -23,6 +24,40 @@ function renderMath(text: string): string {
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     // newlines → <br>
     .replace(/\n/g, '<br>');
+}
+
+function getChoiceExplanation(rationale: string, choiceId: string): string {
+  if (!rationale) return '';
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = rationale;
+  const paragraphs = Array.from(tempDiv.querySelectorAll('p, div'));
+  if (paragraphs.length === 0) {
+    return rationale;
+  }
+  const matchedParagraphs: string[] = [];
+  const choiceLetter = choiceId.toUpperCase();
+  paragraphs.forEach(p => {
+    const text = p.textContent || '';
+    const prefix = text.slice(0, 40).toUpperCase();
+    if (
+      prefix.includes(`CHOICE ${choiceLetter}`) ||
+      prefix.includes(`CHOICES ${choiceLetter}`) ||
+      (prefix.includes('CHOICES') && prefix.includes(choiceLetter))
+    ) {
+      matchedParagraphs.push(p.outerHTML);
+    }
+  });
+  if (matchedParagraphs.length === 0) {
+    const otherChoices = ['A', 'B', 'C', 'D'].filter(c => c !== choiceLetter);
+    paragraphs.forEach(p => {
+      const text = (p.textContent || '').slice(0, 40).toUpperCase();
+      const isOtherChoice = otherChoices.some(c => text.includes(`CHOICE ${c}`));
+      if (!isOtherChoice) {
+        matchedParagraphs.push(p.outerHTML);
+      }
+    });
+  }
+  return matchedParagraphs.join('');
 }
 
 /* SVG icons — no emojis */
@@ -81,27 +116,41 @@ export function renderTestSession(): HTMLElement {
   let elimMode = isElimMode;
   let annotateMode = false;
   // Per-question timer elements
-  let questionTimerEl: HTMLElement | null = null;
-  let timerInterval: ReturnType<typeof setInterval> | null = null;
-
   function startTimer() {
     lastTimerTick = Date.now();
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
+      const state = store.getState();
+      const sess = state.session;
+      if (!sess) {
+        stopTimer();
+        return;
+      }
+      const q = questions[idx];
+      if (!q) return;
+
       if (isTimerPaused) {
         lastTimerTick = Date.now(); // keep resetting tick during pause
         return;
       }
       const now = Date.now();
-      questionAccumulatedTime += Math.floor((now - lastTimerTick) / 1000);
-      lastTimerTick = now;
+      const delta = Math.floor((now - lastTimerTick) / 1000);
+      if (delta >= 1) {
+        if (!sess.questionTimes) sess.questionTimes = {};
+        sess.questionTimes[q.id] = (sess.questionTimes[q.id] || 0) + delta;
+        lastTimerTick = now;
+        
+        // Save the time spent instantly in localStorage without dispatching full re-renders
+        store.updateQuestionTime(q.id, sess.questionTimes[q.id]);
+      }
       
+      const accumulated = sess.questionTimes?.[q.id] || 0;
       if (!questionTimerEl) return;
       if (isTimerHidden) {
         questionTimerEl.textContent = '—:—';
       } else {
-        const m = Math.floor(questionAccumulatedTime / 60).toString().padStart(2, '0');
-        const s = (questionAccumulatedTime % 60).toString().padStart(2, '0');
+        const m = Math.floor(accumulated / 60).toString().padStart(2, '0');
+        const s = (accumulated % 60).toString().padStart(2, '0');
         questionTimerEl.textContent = `${m}:${s}`;
       }
     }, 1000);
@@ -120,7 +169,6 @@ export function renderTestSession(): HTMLElement {
 
     if (lastRenderedIdx !== idx) {
       lastRenderedIdx = idx;
-      questionAccumulatedTime = 0;
       lastTimerTick = Date.now();
     }
 
@@ -242,6 +290,9 @@ export function renderTestSession(): HTMLElement {
         <button class="bb-q-tool-btn ${isSaved ? 'saved' : ''}" id="save-btn">
           ${isSaved ? SVG.bookmarkFilled : SVG.bookmark}&nbsp;Bookmark
         </button>
+        <button class="bb-q-tool-btn" id="report-issue-btn" style="color:var(--c-red, #f43f5e);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-top:-2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>&nbsp;Report Issue
+        </button>
         <div class="bb-q-sep"></div>
         <button class="bb-q-tool-btn ${elimMode ? 'active' : ''}" id="elim-btn" title="Toggle Eliminate Mode">
           <span style="text-decoration:line-through;font-weight:700;font-size:0.8rem;">ABC</span>&nbsp;Eliminate
@@ -264,14 +315,21 @@ export function renderTestSession(): HTMLElement {
       /* Two-column layout */
       const passCol = document.createElement('div');
       passCol.className = 'bb-passage-col';
+      passCol.id = 'left-col';
       passCol.innerHTML = `
         <button class="bb-expand-btn" title="Expand passage">&#10548;</button>
         <div class="bb-passage-text">${isMath ? renderMath(leftHTML) : renderMath(leftHTML)}</div>
       `;
       main.appendChild(passCol);
 
+      const resizer = document.createElement('div');
+      resizer.className = 'bb-divider';
+      resizer.id = 'split-resizer';
+      main.appendChild(resizer);
+
       const qCol = document.createElement('div');
       qCol.className = 'bb-question-col';
+      qCol.id = 'right-col';
       qCol.innerHTML = qColHTML;
       main.appendChild(qCol);
     } else {
@@ -287,6 +345,34 @@ export function renderTestSession(): HTMLElement {
 
     root.appendChild(main);
 
+    // Resizable split screen logic
+    if (!isMath || hasMedia) {
+      const resizer = main.querySelector('#split-resizer') as HTMLElement | null;
+      const leftCol = main.querySelector('#left-col') as HTMLElement | null;
+      if (resizer && leftCol) {
+        resizer.addEventListener('mousedown', (e: MouseEvent) => {
+          e.preventDefault();
+          resizer.classList.add('dragging');
+          const onMouseMove = (moveEvent: MouseEvent) => {
+            const containerWidth = main.clientWidth;
+            if (containerWidth <= 0) return;
+            const rect = main.getBoundingClientRect();
+            let pct = ((moveEvent.clientX - rect.left) / containerWidth) * 100;
+            if (pct < 25) pct = 25;
+            if (pct > 75) pct = 75;
+            leftCol.style.width = `${pct}%`;
+          };
+          const onMouseUp = () => {
+            resizer.classList.remove('dragging');
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        });
+      }
+    }
+
     /* ───── FOOTER ───── */
     const footer = document.createElement('div');
     footer.className = 'bb-footer';
@@ -301,25 +387,17 @@ export function renderTestSession(): HTMLElement {
     questionTimerEl = nav.querySelector('#q-timer');
     startTimer();
 
-    // Paused overlay cover
-    if (isTimerPaused) {
-      const pausedOverlay = document.createElement('div');
-      pausedOverlay.className = 'paused-overlay';
-      pausedOverlay.innerHTML = `
-        <div class="paused-card">
-          <h2>Practice Paused</h2>
-          <p>Your progress is saved. Click below to resume.</p>
-          <button id="resume-btn" class="bb-next-btn" style="margin-top: 1rem; width: 100%; border-radius: 8px;">Resume Practice</button>
-        </div>
-      `;
-      main.appendChild(pausedOverlay);
-
-      pausedOverlay.querySelector('#resume-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isTimerPaused = false;
-        lastTimerTick = Date.now();
-        draw();
-      });
+    if (questionTimerEl) {
+      if (isTimerPaused) {
+        questionTimerEl.style.color = '#ef4444'; // red
+        questionTimerEl.textContent = 'PAUSED';
+      } else {
+        questionTimerEl.style.color = '#111';
+        const accumulated = sess.questionTimes?.[q.id] || 0;
+        const m = Math.floor(accumulated / 60).toString().padStart(2, '0');
+        const s = (accumulated % 60).toString().padStart(2, '0');
+        questionTimerEl.textContent = isTimerHidden ? '—:—' : `${m}:${s}`;
+      }
     }
 
     /* ───── OPTIONS ───── */
@@ -376,9 +454,12 @@ export function renderTestSession(): HTMLElement {
           }
         }
 
-        // Clicking the card selects it (unless eliminated or checked)
+        // Clicking the card selects it (unless eliminated or checked-and-correct)
         div.addEventListener('click', () => {
-          if (!isElim && !isChecked) {
+          if (!isElim && (!isChecked || !isCorrect)) {
+            if (isChecked) {
+              sess.checked.delete(q.id); // allow checking new answer
+            }
             store.answerQuestion(q.id, opt.id);
             draw();
           }
@@ -402,16 +483,19 @@ export function renderTestSession(): HTMLElement {
       optsEl.innerHTML = `
         <div class="bb-spr-container">
           <label>Your answer:</label>
-          <input type="text" class="${sprCls}" id="spr-input-${q.id}" value="${selected || ''}" ${isChecked ? 'disabled' : ''} placeholder="Enter answer" autocomplete="off" />
+          <input type="text" class="${sprCls}" id="spr-input-${q.id}" value="${selected || ''}" ${(isChecked && isCorrect) ? 'disabled' : ''} placeholder="Enter answer" autocomplete="off" />
         </div>
       `;
 
       const inp = optsEl.querySelector(`#spr-input-${q.id}`) as HTMLInputElement;
       if (inp) {
-        inp.addEventListener('change', e => {
+        inp.addEventListener('input', e => {
+          if (isChecked && !isCorrect) {
+            sess.checked.delete(q.id); // clear check status on typing
+          }
           store.answerQuestion(q.id, (e.target as HTMLInputElement).value);
         });
-        inp.addEventListener('blur', e => {
+        inp.addEventListener('change', e => {
           store.answerQuestion(q.id, (e.target as HTMLInputElement).value);
         });
       }
@@ -424,19 +508,45 @@ export function renderTestSession(): HTMLElement {
       const btn = document.createElement('button');
       btn.className = 'bb-check-btn';
       btn.textContent = 'Check Answer';
-      btn.addEventListener('click', () => { store.checkAnswer(q.id, questionAccumulatedTime); draw(); });
+      btn.addEventListener('click', () => { store.checkAnswer(q.id, sess.questionTimes?.[q.id] || 0); draw(); });
       actionEl.appendChild(btn);
     }
 
     if (isChecked) {
       const ok = selected === q.correctAnswer;
+      const isMcq = q.options && q.options.length > 0;
+      const choiceExplanation = isMcq ? getChoiceExplanation(q.rationale, selected || '') : q.rationale;
       const fb = document.createElement('div');
       fb.className = `bb-feedback ${ok ? 'bb-feedback--correct' : 'bb-feedback--incorrect'}`;
       fb.innerHTML = `
-        <div class="bb-feedback-label">${ok ? `${SVG.check} Correct` : `${SVG.cross} Incorrect`}</div>
-        <div class="bb-feedback-body">${renderMath(q.rationale)}</div>
-        ${!ok ? '<div class="bb-feedback-hint">Select another option to try again.</div>' : ''}
+        <div class="bb-feedback-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>${ok ? `${SVG.check} Correct` : `${SVG.cross} Incorrect`}</span>
+          ${isMcq ? `<button class="btn btn-ghost show-full-rationale-btn" style="font-size:0.7rem; padding:0.25rem 0.5rem; border-radius:4px; height:24px; color:inherit; border:1px solid currentColor; cursor:pointer;">Show Full Explanation</button>` : ''}
+        </div>
+        <div class="bb-feedback-body" id="explanation-body" style="margin-top:0.5rem; line-height:1.6;">
+          ${renderMath(choiceExplanation || q.rationale)}
+        </div>
+        ${!ok ? '<div class="bb-feedback-hint" style="margin-top:0.5rem; font-size:0.75rem; opacity:0.85;">Select another option to try again.</div>' : ''}
       `;
+      
+      if (isMcq) {
+        fb.querySelector('.show-full-rationale-btn')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const body = fb.querySelector('#explanation-body');
+          const btn = e.currentTarget as HTMLElement;
+          if (body) {
+            const isFull = btn.textContent === 'Show Specific Explanation';
+            if (isFull) {
+              body.innerHTML = renderMath(choiceExplanation || q.rationale);
+              btn.textContent = 'Show Full Explanation';
+            } else {
+              body.innerHTML = renderMath(q.rationale);
+              btn.textContent = 'Show Specific Explanation';
+            }
+          }
+        });
+      }
+      
       actionEl.appendChild(fb);
     }
 
@@ -490,8 +600,9 @@ export function renderTestSession(): HTMLElement {
           if (isTimerHidden) {
             questionTimerEl.textContent = '—:—';
           } else {
-            const m = Math.floor(questionAccumulatedTime / 60).toString().padStart(2, '0');
-            const s = (questionAccumulatedTime % 60).toString().padStart(2, '0');
+            const qTime = sess.questionTimes?.[q.id] || 0;
+            const m = Math.floor(qTime / 60).toString().padStart(2, '0');
+            const s = (qTime % 60).toString().padStart(2, '0');
             questionTimerEl.textContent = `${m}:${s}`;
           }
         }
@@ -507,6 +618,53 @@ export function renderTestSession(): HTMLElement {
     });
     root.querySelector('#flag-btn')?.addEventListener('click', () => { store.toggleFlag(q.id); draw(); });
     root.querySelector('#save-btn')?.addEventListener('click', () => { store.toggleSaveQuestion(q.id); draw(); });
+    root.querySelector('#report-issue-btn')?.addEventListener('click', () => {
+      let modal = document.getElementById('report-issue-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'report-issue-modal';
+        modal.className = 'glass';
+        Object.assign(modal.style, {
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          width: '450px', padding: '1.5rem', background: 'var(--c-card)',
+          border: '1px solid var(--c-border)', borderRadius: '12px',
+          boxShadow: 'var(--shadow-xl)', zIndex: '100000', display: 'flex', flexDirection: 'column',
+          gap: '1rem'
+        });
+        modal.innerHTML = `
+          <h3 style="font-size:1.15rem;font-weight:700;color:var(--c-text);margin:0;display:flex;align-items:center;gap:0.5rem;font-family:var(--font);">
+            Report Issue: Question ${displayId}
+          </h3>
+          <p style="font-size:0.8rem;color:var(--c-text-2);margin:0;line-height:1.4;font-family:var(--font);">Describe the issue (e.g. incorrect answer key, typo, missing parts) so you can prompt me to fix it later.</p>
+          <textarea id="issue-desc" placeholder="Describe the problem in detail..." style="width:100%;height:120px;border-radius:8px;border:1px solid var(--c-border);background:var(--c-elevated);color:var(--c-text);padding:0.75rem;font-family:var(--font);font-size:0.875rem;resize:none;outline:none;"></textarea>
+          <div style="display:flex;justify-content:flex-end;gap:0.75rem;font-family:var(--font);">
+            <button class="btn btn-ghost" id="issue-cancel" style="font-size:0.8rem;padding:0.4rem 1rem;cursor:pointer;">Cancel</button>
+            <button class="btn" id="issue-submit" style="font-size:0.8rem;padding:0.4rem 1rem;background:var(--c-red, #f43f5e);color:#fff;cursor:pointer;">Submit Report</button>
+          </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelector('#issue-cancel')?.addEventListener('click', () => {
+          modal!.remove();
+        });
+
+        modal.querySelector('#issue-submit')?.addEventListener('click', () => {
+          const desc = (modal!.querySelector('#issue-desc') as HTMLTextAreaElement).value.trim();
+          if (!desc) {
+            alert('Please enter a description of the issue.');
+            return;
+          }
+          store.reportIssue(q.id, desc);
+          modal!.remove();
+
+          const t = document.createElement('div');
+          t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:0.4rem 1.2rem;border-radius:999px;font-size:0.85rem;font-weight:600;z-index:99999;opacity:1;transition:opacity 0.4s;pointer-events:none;font-family:var(--font);';
+          t.textContent = 'Issue reported successfully!';
+          document.body.appendChild(t);
+          setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 1500);
+        });
+      }
+    });
     root.querySelector('#back-btn')?.addEventListener('click', () => { if (idx > 0) { idx--; draw(); } });
     root.querySelector('#next-btn')?.addEventListener('click', () => { if (isLast) { stopTimer(); store.endSession(); } else { idx++; draw(); } });
     root.querySelector('#nav-counter')?.addEventListener('click', () => { drawerOpen = !drawerOpen; draw(); });
@@ -897,6 +1055,10 @@ export function renderTestSession(): HTMLElement {
         const isCurrent    = qIdx === idx;
         const isQAnswered  = !!sess.answers[qItem.id];
         const isQFlagged   = sess.flagged.has(qItem.id);
+        const isQChecked   = sess.checked.has(qItem.id);
+        const solvedInfo   = store.getState().stats.solved?.[qItem.id];
+        const isQCorrect   = isQChecked && solvedInfo?.correct;
+        const isQIncorrect = isQChecked && solvedInfo && !solvedInfo.correct;
 
         const cell = document.createElement('div');
         cell.className = 'bb-drawer-cell';
@@ -912,7 +1074,7 @@ export function renderTestSession(): HTMLElement {
         const btn = document.createElement('button');
         btn.className = [
           'bb-drawer-item',
-          isQAnswered ? 'bb-drawer-item--answered' : 'bb-drawer-item--unanswered',
+          isQCorrect ? 'bb-drawer-item--correct' : (isQIncorrect ? 'bb-drawer-item--incorrect' : (isQAnswered ? 'bb-drawer-item--answered' : 'bb-drawer-item--unanswered')),
           isCurrent   ? 'bb-drawer-item--current'  : '',
         ].filter(Boolean).join(' ');
         btn.textContent = String(qIdx + 1);
@@ -989,7 +1151,7 @@ export function renderTestSession(): HTMLElement {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (selected && !isChecked) {
-        store.checkAnswer(q.id, questionAccumulatedTime);
+        store.checkAnswer(q.id, sess.questionTimes?.[q.id] || 0);
         draw();
       } else if (isChecked) {
         const isLast = idx === questions.length - 1;

@@ -24,13 +24,10 @@ export function renderAnalytics(): HTMLElement {
     return `${m}m`;
   };
 
-  // Total time spent on questions in seconds
-  const totalTimeSecs = history.reduce((sum, h) => sum + h.timeSpent, 0);
-
   // 2. Activity Trend: group by week
-  // Feb 1, 2026 to July 11, 2026
+  // Feb 1, 2026 to current date
   const startMs = new Date('2026-02-01T00:00:00').getTime();
-  const endMs = new Date('2026-07-11T23:59:59').getTime();
+  const endMs = Math.max(new Date('2026-07-11T23:59:59').getTime(), Date.now());
   const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
   const weekCount = Math.ceil((endMs - startMs) / oneWeekMs);
 
@@ -76,14 +73,23 @@ export function renderAnalytics(): HTMLElement {
     ? 'var(--c-elevated)'
     : `conic-gradient(var(--c-purple) 0% ${rwPct}%, var(--c-blue) ${rwPct}% 100%)`;
 
-  // Donut chart B: Activity Time (Questions vs Practice Tests)
-  const practiceTestSecs = history.length > 0 ? 23 * 60 : 0; // Only show mock test time if they actually have history
-  const totalActivityTime = totalTimeSecs + practiceTestSecs;
-  const questionsPct = totalActivityTime > 0 ? Math.round((totalTimeSecs / totalActivityTime) * 100) : 0;
+  // Donut chart B: Attempts by Difficulty
+  let easyAttempts = 0;
+  let mediumAttempts = 0;
+  let hardAttempts = 0;
+  history.forEach(h => {
+    if (h.difficulty === 1) easyAttempts++;
+    else if (h.difficulty === 2) mediumAttempts++;
+    else if (h.difficulty === 3) hardAttempts++;
+  });
+  const totalAttempts = easyAttempts + mediumAttempts + hardAttempts;
+  const easyPct = totalAttempts > 0 ? Math.round((easyAttempts / totalAttempts) * 100) : 0;
+  const mediumPct = totalAttempts > 0 ? Math.round((mediumAttempts / totalAttempts) * 100) : 0;
+  const hardPct = totalAttempts > 0 ? Math.max(0, 100 - easyPct - mediumPct) : 0;
 
-  const donutBgB = totalActivityTime === 0
+  const difficultyChartBg = totalAttempts === 0
     ? 'var(--c-elevated)'
-    : `conic-gradient(var(--c-amber) 0% ${questionsPct}%, var(--c-green) ${questionsPct}% 100%)`;
+    : `conic-gradient(var(--c-green) 0% ${easyPct}%, var(--c-amber) ${easyPct}% ${easyPct + mediumPct}%, var(--c-red) ${easyPct + mediumPct}% 100%)`;
 
   // 4. Top 5 Topics costing the most points
   const skillCounts: Record<string, { total: number; correct: number; section: string; domain: string }> = {};
@@ -179,7 +185,8 @@ export function renderAnalytics(): HTMLElement {
     solveCountMap[dStr] = (solveCountMap[dStr] || 0) + 1;
   });
 
-  for (let w = 0; w < 23; w++) {
+  const calWeekCount = Math.ceil((endMs - calStartMs) / (7 * dayMs));
+  for (let w = 0; w < calWeekCount; w++) {
     const weekDays = [];
     for (let d = 0; d < 7; d++) {
       const curMs = calStartMs + (w * 7 + d) * dayMs;
@@ -368,37 +375,44 @@ export function renderAnalytics(): HTMLElement {
         </div>
       </div>
 
-      <!-- Activity Time Donut -->
+      <!-- Attempts by Difficulty Donut -->
       <div class="glass" style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1.5rem; display:flex; flex-direction:column; justify-content:space-between;">
         <div>
-          <h2 style="font-size:1.1rem; font-weight:700; color:var(--c-text);">Study time by activity</h2>
-          <p style="font-size:0.75rem; color:var(--c-text-2); margin-top:0.25rem;">Questions, rush, practice tests, and vocab</p>
+          <h2 style="font-size:1.1rem; font-weight:700; color:var(--c-text);">Attempts by difficulty</h2>
+          <p style="font-size:0.75rem; color:var(--c-text-2); margin-top:0.25rem;">Total resolved questions grouped by easy, medium, and hard</p>
         </div>
 
         <div style="display:flex; align-items:center; gap:2.5rem; margin-top:1.5rem;">
           <!-- Conic-gradient donut -->
-          <div style="width:110px; height:110px; border-radius:50%; background:${donutBgB}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <div style="width:110px; height:110px; border-radius:50%; background:${difficultyChartBg}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
             <div style="width:80px; height:80px; border-radius:50%; background:var(--c-card); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
-              <span style="font-size:0.95rem; font-weight:800; color:var(--c-text); line-height:1.1;">${formatTime(totalActivityTime)}</span>
-              <span style="font-size:0.6rem; color:var(--c-text-2); font-weight:500;">total</span>
+              <span style="font-size:1.15rem; font-weight:800; color:var(--c-text); line-height:1.1;">${totalAttempts}</span>
+              <span style="font-size:0.6rem; color:var(--c-text-2); font-weight:500;">attempts</span>
             </div>
           </div>
 
           <!-- Legend list -->
-          <div style="flex:1; display:flex; flex-direction:column; gap:0.75rem;">
+          <div style="flex:1; display:flex; flex-direction:column; gap:0.5rem;">
             <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8125rem;">
               <div style="display:flex; align-items:center; gap:0.5rem; color:var(--c-text-2); font-weight:500;">
-                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--c-amber);"></span>
-                Questions
-              </div>
-              <span style="font-weight:700; color:var(--c-text);">${formatTime(totalTimeSecs)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8125rem; border-top:1px solid var(--c-border); padding-top:0.5rem;">
-              <div style="display:flex; align-items:center; gap:0.5rem; color:var(--c-text-2); font-weight:500;">
                 <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--c-green);"></span>
-                Practice Tests
+                Easy
               </div>
-              <span style="font-weight:700; color:var(--c-text);">${practiceTestSecs > 0 ? '23m' : '0m'}</span>
+              <span style="font-weight:700; color:var(--c-text);">${easyAttempts} (${easyPct}%)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8125rem; border-top:1px solid var(--c-border); padding-top:0.35rem;">
+              <div style="display:flex; align-items:center; gap:0.5rem; color:var(--c-text-2); font-weight:500;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--c-amber);"></span>
+                Medium
+              </div>
+              <span style="font-weight:700; color:var(--c-text);">${mediumAttempts} (${mediumPct}%)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8125rem; border-top:1px solid var(--c-border); padding-top:0.35rem;">
+              <div style="display:flex; align-items:center; gap:0.5rem; color:var(--c-text-2); font-weight:500;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--c-red);"></span>
+                Hard
+              </div>
+              <span style="font-weight:700; color:var(--c-text);">${hardAttempts} (${hardPct}%)</span>
             </div>
           </div>
         </div>

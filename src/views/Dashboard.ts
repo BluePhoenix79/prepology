@@ -175,6 +175,31 @@ export function renderDashboard(): HTMLElement {
           </div>
         ` : ''}
       </div>
+
+      <!-- Reported Issues section -->
+      ${stats.reportedIssues && stats.reportedIssues.length > 0 ? `
+        <div class="glass" style="margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-card);">
+          <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--c-text); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            ⚠️ Reported Issues (${stats.reportedIssues.length})
+          </h2>
+          <p style="font-size: 0.75rem; color: var(--c-text-2); margin-bottom: 1rem;">Here are the issues you've flagged. You can copy the details to prompt me to fix them.</p>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
+            ${stats.reportedIssues.map((issue) => {
+              const displayId = issue.questionId.replace(/_(read|math)$/i, '');
+              const dateStr = new Date(issue.timestamp).toLocaleDateString();
+              return `
+                <div style="background: var(--c-elevated); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--c-border); display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                  <div style="flex: 1; text-align: left;">
+                    <div style="font-size: 0.8125rem; font-weight: 700; color: var(--c-blue);">Question ${displayId} <span style="font-size: 0.7rem; font-weight: 400; color: var(--c-text-3); margin-left: 0.5rem;">${dateStr}</span></div>
+                    <div style="font-size: 0.8125rem; color: var(--c-text); margin-top: 0.25rem; font-style: italic;">"${issue.description}"</div>
+                  </div>
+                  <button class="btn btn-ghost copy-issue-btn" data-desc="For question ID ${issue.questionId}, I reported the following issue: ${issue.description}. Please fix this question." style="font-size: 0.7rem; padding: 0.35rem 0.7rem; border-radius: 6px; white-space: nowrap; cursor: pointer;">Copy Prompt</button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
     `;
   }
 
@@ -229,6 +254,19 @@ export function renderDashboard(): HTMLElement {
         const domain = target.dataset.domain;
         const skill = target.dataset.skill;
         store.startSession(activeSection, activeDifficulty, domain, skill, activeSource === 'official', shouldRandomize, missedOnly ? 'missed' : undefined);
+      });
+    });
+
+    root.querySelectorAll('.copy-issue-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const desc = (e.currentTarget as HTMLElement).dataset.desc || '';
+        navigator.clipboard.writeText(desc).then(() => {
+          const originalText = (e.currentTarget as HTMLElement).textContent || 'Copy Prompt';
+          (e.currentTarget as HTMLElement).textContent = 'Copied!';
+          setTimeout(() => {
+            (e.currentTarget as HTMLElement).textContent = originalText;
+          }, 1500);
+        });
       });
     });
   }

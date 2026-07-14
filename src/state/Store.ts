@@ -18,16 +18,18 @@ function parseFractionOrDecimal(val: string): number {
 
 function areAnswersEquivalent(ans1: string, ans2: string): boolean {
   if (!ans1 || !ans2) return false;
-  const a1 = ans1.trim().toUpperCase();
-  const a2 = ans2.trim().toUpperCase();
-  if (a1 === a2) return true;
+  const correctVariants = ans1.split(',').map(s => s.trim().toUpperCase());
+  const userAns = ans2.trim().toUpperCase();
   
-  const v1 = parseFractionOrDecimal(a1);
-  const v2 = parseFractionOrDecimal(a2);
-  if (!isNaN(v1) && !isNaN(v2)) {
-    return Math.abs(v1 - v2) < 1e-6;
-  }
-  return false;
+  return correctVariants.some(variant => {
+    if (variant === userAns) return true;
+    const v1 = parseFractionOrDecimal(variant);
+    const v2 = parseFractionOrDecimal(userAns);
+    if (!isNaN(v1) && !isNaN(v2)) {
+      return Math.abs(v1 - v2) < 1e-6;
+    }
+    return false;
+  });
 }
 
 type Listener = (state: AppState) => void;
@@ -56,15 +58,33 @@ function loadState(): AppState {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      // ALWAYS wipe session on reload — sessions should never persist across page loads.
-      // This prevents crashes from stale/incompatible session structures.
-      parsed.session = null;
-      parsed.currentView = 'dashboard';
+      
+      // Recover and reconstruct Sets in the session if it exists
+      if (parsed.session) {
+        parsed.session.checked = new Set(parsed.session.checked || []);
+        parsed.session.flagged = new Set(parsed.session.flagged || []);
+        
+        const restoredElim: Record<string, Set<string>> = {};
+        if (parsed.session.eliminatedOptions) {
+          for (const [qId, opts] of Object.entries(parsed.session.eliminatedOptions)) {
+            restoredElim[qId] = new Set(opts as any || []);
+          }
+        }
+        parsed.session.eliminatedOptions = restoredElim;
+        
+        if (!parsed.session.answers) parsed.session.answers = {};
+        if (!parsed.session.attempts) parsed.session.attempts = {};
+        if (!parsed.session.questionTimes) parsed.session.questionTimes = {};
+      } else {
+        parsed.currentView = 'dashboard';
+      }
+      
       if (parsed.stats) {
         if (!parsed.stats.solved) parsed.stats.solved = {};
         if (!parsed.stats.savedQuestions) parsed.stats.savedQuestions = [];
         if (parsed.stats.streak === undefined) parsed.stats.streak = 0;
         if (!parsed.stats.solveHistory) parsed.stats.solveHistory = [];
+        if (!parsed.stats.reportedIssues) parsed.stats.reportedIssues = [];
       }
       if (!parsed.difficultyOverrides) {
         parsed.difficultyOverrides = {};
@@ -189,6 +209,7 @@ class Store {
       attempts: {},
       flagged: new Set(),
       eliminatedOptions: {},
+      questionTimes: {},
       completed: false
     };
     this.state.currentView = 'test';
@@ -391,6 +412,7 @@ class Store {
       attempts: {},
       flagged: new Set(),
       eliminatedOptions: {},
+      questionTimes: {},
       completed: false
     };
     this.state.currentView = 'test';
@@ -405,6 +427,28 @@ class Store {
       // The UI should listen to a custom timer event or manage it locally.
       window.dispatchEvent(new CustomEvent('time-updated', { detail: secondsLeft }));
     }
+  }
+
+  public updateQuestionTime(questionId: string, time: number) {
+    if (this.state.session) {
+      if (!this.state.session.questionTimes) {
+        this.state.session.questionTimes = {};
+      }
+      this.state.session.questionTimes[questionId] = time;
+      saveState(this.state);
+    }
+  }
+
+  public reportIssue(questionId: string, description: string) {
+    if (!this.state.stats.reportedIssues) {
+      this.state.stats.reportedIssues = [];
+    }
+    this.state.stats.reportedIssues.push({
+      questionId,
+      timestamp: Date.now(),
+      description
+    });
+    this.notify();
   }
 
   public checkStreak() {
@@ -433,6 +477,7 @@ class Store {
       stats.streak = 1;
     }
     stats.lastActiveDate = today;
+    saveState(this.state);
   }
 
   public toggleSaveQuestion(questionId: string) {

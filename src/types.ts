@@ -32,7 +32,14 @@ export interface TestSession {
   attempts: Record<string, number>; // questionId -> number of times checked
   flagged: Set<string>; // questionIds that are marked for review
   eliminatedOptions: Record<string, Set<string>>; // questionId -> set of optionIds
+  questionTimes?: Record<string, number>; // questionId -> accumulated seconds
   completed: boolean;
+}
+
+export interface ReportedIssue {
+  questionId: string;
+  timestamp: number;
+  description: string;
 }
 
 export interface UserStats {
@@ -46,6 +53,7 @@ export interface UserStats {
   savedQuestions?: string[]; // Array of bookmarked questionIds
   streak?: number; // Daily practice streak
   lastActiveDate?: string; // YYYY-MM-DD
+  reportedIssues?: ReportedIssue[]; // User reported issues for questions
   solveHistory?: Array<{
     id: string;
     timestamp: number;
@@ -65,3 +73,4 @@ export interface AppState {
   questionBank: Question[];
   difficultyOverrides?: Record<string, Difficulty>;
 }
+

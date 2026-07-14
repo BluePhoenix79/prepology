@@ -24,7 +24,10 @@ export function renderReview(): HTMLElement {
           <p>${sectionMistakes.length} mistake${sectionMistakes.length !== 1 ? 's' : ''} in ${activeReviewSection === 'Math' ? 'Mathematics' : 'Reading & Writing'}</p>
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;">
-          ${sectionMistakes.length > 0 ? `<button class="btn" id="practice-btn" style="font-size:0.875rem;">Practice Weak Areas →</button>` : ''}
+          ${sectionMistakes.length > 0 ? `
+            <button class="btn" id="practice-btn" style="font-size:0.875rem;">Practice Weak Areas</button>
+            <button class="btn" id="practice-missed-btn" style="font-size:0.875rem; background: var(--c-red, #f43f5e); color:#fff; border:none; cursor:pointer;">Practice Missed Questions</button>
+          ` : ''}
           <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">← Dashboard</button>
         </div>
       </div>
@@ -56,6 +59,15 @@ export function renderReview(): HTMLElement {
         return;
       }
       store.startTargetedSession(recs);
+    });
+
+    root.querySelector('#practice-missed-btn')?.addEventListener('click', () => {
+      const missedQs = sectionMistakes.map(id => state.questionBank.find(x => x.id === id)).filter(Boolean) as any;
+      if (missedQs.length === 0) {
+        alert('No missed questions found.');
+        return;
+      }
+      store.startTargetedSession(missedQs);
     });
 
     const listEl = root.querySelector('#list')!;
@@ -94,13 +106,28 @@ export function renderReview(): HTMLElement {
             <div style="margin-top:0.75rem;font-family:var(--font-serif);font-size:0.9375rem;line-height:1.85;color:var(--c-text-2);padding:0.75rem 0;">${q.passageText}</div>
           </details>
         ` : ''}
-        <div class="rationale-block">
-          <div class="rationale-answer">✓ Correct Answer: ${q.correctAnswer}</div>
-          <div class="rationale-text">${q.rationale}</div>
+        <div class="rationale-block" style="margin-top: 1rem;">
+          <button class="btn btn-ghost show-explanation-btn" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid var(--c-border); color: var(--c-blue); background: transparent; cursor: pointer; font-family: var(--font);">Show Explanation</button>
+          <div class="explanation-content" style="display: none; margin-top: 1rem;">
+            <div class="rationale-answer" style="margin-bottom: 0.5rem; font-weight: 700; color: #10b981;">✓ Correct Answer: ${q.correctAnswer}</div>
+            <div class="rationale-text">${q.rationale}</div>
+          </div>
         </div>
         <p style="margin-top:0.625rem;font-size:0.7rem;color:var(--c-text-3);">ID: ${q.id.replace(/_(read|math)$/i, '')}</p>
       `;
       listEl.appendChild(card);
+    });
+
+    root.querySelectorAll('.show-explanation-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const parent = (e.currentTarget as HTMLElement).parentElement;
+        const content = parent?.querySelector('.explanation-content') as HTMLElement | null;
+        if (content) {
+          const isHidden = content.style.display === 'none';
+          content.style.display = isHidden ? 'block' : 'none';
+          (e.currentTarget as HTMLElement).textContent = isHidden ? 'Hide Explanation' : 'Show Explanation';
+        }
+      });
     });
   }
 

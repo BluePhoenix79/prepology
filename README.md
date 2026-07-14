@@ -124,3 +124,28 @@ Here is a roadmap of features planned for the future evolution of Prepology:
 - [ ] **PDF Worksheet Export**: Enable users to export custom-filtered question pools or their mistakes list as formatted PDF worksheets with answer keys for offline paper-and-pencil practice.
 - [ ] **Peer Challenge Arena**: Introduce a real-time multiplayer "challenge mode" where friends can compete in small, timed mini-tests to solve questions correctly.
 - [ ] **Progressive Web App (PWA) Support**: Enable complete offline caching so students can continue practicing or studying vocabulary without an active internet connection.
+
+---
+
+## 🕷️ OnePrep Scrape Plan & Architecture
+
+To support scaling Prepology with thousands of high-fidelity SAT practice questions, the following architecture is proposed to build an automated scraper targeting the official College Board Question Bank (referred to as **OnePrep**).
+
+### 1. Target Data Architecture
+The scraped dataset should resolve to the standard `Question` schema defined in `src/types.ts`:
+- **Unique Identification**: Stable UUID hashes based on College Board API question IDs.
+- **Hierarchical Taxonomies**: Map scraped domain names to standard digital SAT groups (e.g., Algebra, Craft and Structure).
+- **Text Formats**: Sanitized LaTeX/MathJax mathematical formulas.
+- **Passage Links**: Connect complex stimulus reading passages correctly to their target questions.
+
+### 2. Scraping Flow & Network Protocol
+College Board's official question bank is accessed via a JSON API. We can bypass heavy headless browsers in favor of fast HTTP requests:
+1. **Discovery Request**: Send a `POST` request to the search endpoint `/questionbank/search` to retrieve a list of all question metadata, IDs, and domain mappings.
+2. **Batch Retrieval**: Loop through discovered IDs, issuing concurrent requests to the detail API `/questionbank/question/{id}` to fetch complete HTML bodies, rationale texts, and option lists.
+3. **Asset Mirroring**: Parse image URLs (e.g., base64 PNGs and SVG assets) and download them to `/public/assets/` to ensure offline availability.
+
+### 3. Sanitization & Normalization Pipeline
+1. **Passage Merging**: Identify duplicate passage strings and reference them by a single ID to minimize bundle size.
+2. **Text Cleaning**: Strip redundant HTML wrappers, normalize non-breaking spaces, and convert raw Unicode math symbols to standard LaTeX strings (e.g., `\sqrt{x}`).
+3. **Blank Replacements**: Detect missing text underscores in Reading & Writing questions, inserting standardized `_____` blanks.
+4. **Answer Key Extraction**: Map option letters (`A`, `B`, `C`, `D`) to their respective keys, recovering grid-in (SPR) numerical values.

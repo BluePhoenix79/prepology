@@ -8,23 +8,8 @@ import { renderVocab } from './views/Vocab';
 import { renderSaved } from './views/Saved';
 import { renderAnalytics } from './views/Analytics';
 
-// Initialize question bank — always clear any stale session from localStorage
-// so that type changes don't break older stored sessions.
-const savedRaw = localStorage.getItem('prepology_state') || localStorage.getItem('preplogy_state');
-if (savedRaw) {
-  try {
-    const saved = JSON.parse(savedRaw);
-    // If session exists in storage, wipe it — sessions should not survive page reloads.
-    if (saved.session) {
-      saved.session = null;
-      saved.currentView = 'dashboard';
-      localStorage.setItem('prepology_state', JSON.stringify(saved));
-    }
-  } catch {
-    localStorage.removeItem('prepology_state');
-    localStorage.removeItem('preplogy_state');
-  }
-}
+// Initialize question bank
+
 
 store.setQuestionBank(questionsData as any);
 
@@ -37,6 +22,11 @@ function render() {
   if (state.currentView === 'test') {
     app.appendChild(renderTestSession());
   } else {
+    // Clean up modals and docked layouts if not in testing room
+    document.getElementById('desmos-modal')?.remove();
+    document.getElementById('reference-modal')?.remove();
+    document.body.classList.remove('calc-docked');
+
     const shell = document.createElement('div');
     shell.className = 'app-shell';
 

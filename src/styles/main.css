@@ -52,7 +52,7 @@
    RESET
 ════════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; scroll-behavior: smooth; }
+html { font-size: 16px; scroll-behavior: smooth; height: 100vh; overflow: hidden; width: 100vw; }
 
 body {
   font-family: var(--font);
@@ -61,7 +61,9 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  width: 100vw;
 }
 
 #app {
@@ -444,11 +446,24 @@ select:focus, input:focus {
 /* Passage column */
 .bb-passage-col {
   width: 50%;
-  border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   padding: 2.25rem 2.5rem;
   background: #fff;
   position: relative;
+}
+
+.bb-divider {
+  width: 6px;
+  background: #e2e8f0;
+  cursor: col-resize;
+  position: relative;
+  z-index: 10;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  height: 100%;
+}
+.bb-divider:hover, .bb-divider.dragging {
+  background: var(--c-blue) !important;
 }
 
 /* Expand/collapse passage icon */
@@ -513,11 +528,12 @@ select:focus, input:focus {
   min-height: 350px;
 }
 .bb-math-graphic-container svg, .bb-math-graphic-container img {
-  max-width: 95%;
-  max-height: 75vh;
-  width: auto;
-  height: auto;
-  display: block;
+  width: 100% !important;
+  max-width: 450px !important;
+  max-height: 75vh !important;
+  height: auto !important;
+  display: block !important;
+  margin: 0 auto;
 }
 
 
@@ -1650,6 +1666,16 @@ select:focus, input:focus {
   background: #1a56db;
   color: #ffffff;
 }
+.bb-drawer-item--correct {
+  border: 2px solid #10b981 !important;
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+}
+.bb-drawer-item--incorrect {
+  border: 2px solid #ef4444 !important;
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+}
 .bb-drawer-item--current {
   outline: 2.5px solid #1a56db;
   outline-offset: 1px;
@@ -1710,7 +1736,7 @@ body.calc-docked #desmos-modal {
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #desmos-modal {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Custom Difficulty Button & Dropdown */
