@@ -1844,3 +1844,239 @@ body.calc-docked #desmos-modal {
   filter: brightness(0.95);
   box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
 }
+
+/* ───── SPR Textbox & Container (Image 1) ───── */
+.bb-spr-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  max-width: 360px;
+}
+.bb-spr-container label {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.spr-input {
+  width: 100%;
+  padding: 0.65rem 0.875rem;
+  font-size: 1.05rem;
+  font-weight: 500;
+  font-family: var(--font);
+  color: #0f172a;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.spr-input:focus {
+  border-color: #1a56db;
+  box-shadow: 0 0 0 3.5px rgba(26, 86, 219, 0.15);
+}
+.spr-input.incorrect {
+  border-color: #ef4444 !important;
+  background-color: #fff5f5 !important;
+  box-shadow: 0 0 0 3.5px rgba(239, 68, 68, 0.15) !important;
+}
+.spr-input.correct {
+  border-color: #22c55e !important;
+  background-color: #f0fdf4 !important;
+  box-shadow: 0 0 0 3.5px rgba(34, 197, 94, 0.15) !important;
+}
+
+/* ───── Floating Highlight Toolbar (Image 2) ───── */
+.bb-highlight-toolbar {
+  position: absolute;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.06);
+  border: 1px solid #e2e8f0;
+  user-select: none;
+  animation: highlightPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes highlightPop {
+  from { opacity: 0; transform: translateY(4px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.bb-hl-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  position: relative;
+}
+.bb-hl-swatch:hover {
+  transform: scale(1.1);
+}
+.bb-hl-swatch.active {
+  border-color: #0f172a;
+  box-shadow: inset 0 0 0 1.5px #fff;
+}
+.bb-hl-swatch--yellow { background: #fde047; }
+.bb-hl-swatch--blue { background: #bae6fd; }
+.bb-hl-swatch--pink { background: #fbcfe8; }
+
+.bb-hl-divider {
+  width: 1px;
+  height: 20px;
+  background: #e2e8f0;
+  margin: 0 2px;
+}
+
+.bb-hl-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  font-family: var(--font);
+}
+.bb-hl-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+.bb-hl-btn.active {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-color: #38bdf8;
+}
+.bb-hl-btn--delete:hover {
+  background: #fef2f2;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+/* Inline highlights */
+mark.bb-hl-yellow { background: #fef08a; border-radius: 2px; color: inherit; cursor: pointer; }
+mark.bb-hl-blue { background: #bae6fd; border-radius: 2px; color: inherit; cursor: pointer; }
+mark.bb-hl-pink { background: #fbcfe8; border-radius: 2px; color: inherit; cursor: pointer; }
+mark.bb-hl-underline { text-decoration: underline; text-decoration-color: #0284c7; text-decoration-thickness: 2px; background: transparent; cursor: pointer; }
+
+/* Sticky note popover */
+.bb-hl-note-popover {
+  position: absolute;
+  z-index: 100001;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.75rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.bb-hl-note-popover textarea {
+  width: 100%;
+  height: 70px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  font-family: var(--font);
+  resize: none;
+  outline: none;
+}
+.bb-hl-note-popover textarea:focus {
+  border-color: #1a56db;
+}
+
+/* ───── Directions Modal (Image 3) ───── */
+.bb-directions-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 720px;
+  max-height: 85vh;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  z-index: 100005;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--font);
+  animation: modalScale 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalScale {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.bb-directions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+.bb-directions-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+.bb-directions-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  font-size: 0.875rem;
+  color: #334155;
+  line-height: 1.55;
+}
+.bb-directions-body p {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+.bb-directions-body ul {
+  margin: 0 0 1.25rem 0;
+  padding-left: 1.25rem;
+}
+.bb-directions-body li {
+  margin-bottom: 0.5rem;
+}
+.bb-spr-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 0.8125rem;
+}
+.bb-spr-table th, .bb-spr-table td {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  text-align: center;
+}
+.bb-spr-table th {
+  background: #f0f9ff;
+  color: #0369a1;
+  font-weight: 700;
+}
+.bb-spr-table th.unacceptable {
+  color: #0284c7;
+}
+

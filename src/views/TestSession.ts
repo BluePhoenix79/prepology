@@ -1,4 +1,4 @@
-import { store } from '../state/Store';
+import { store, areAnswersEquivalent } from '../state/Store';
 import type { Question } from '../types';
 
 let currentSessionId: string | null = null;
@@ -14,15 +14,268 @@ let lastRenderedIdx = -1;
 let questionTimerEl: HTMLElement | null = null;
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 
+// Floating Highlight & Annotation state
+let activeHighlightToolbar: HTMLElement | null = null;
+let activeNotePopover: HTMLElement | null = null;
+
+function removeHighlightToolbar() {
+  if (activeHighlightToolbar) {
+    activeHighlightToolbar.remove();
+    activeHighlightToolbar = null;
+  }
+  if (activeNotePopover) {
+    activeNotePopover.remove();
+    activeNotePopover = null;
+  }
+}
+
+function showHighlightToolbar(x: number, y: number, targetMark: HTMLElement | null, range: Range | null) {
+  removeHighlightToolbar();
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'bb-highlight-toolbar';
+  toolbar.style.left = `${Math.max(10, Math.min(x - 80, window.innerWidth - 220))}px`;
+  toolbar.style.top = `${Math.max(10, y - 44)}px`;
+
+  // Swatches
+  const yellowSwatch = document.createElement('button');
+  yellowSwatch.className = 'bb-hl-swatch bb-hl-swatch--yellow' + (targetMark?.classList.contains('bb-hl-yellow') ? ' active' : '');
+  yellowSwatch.title = 'Yellow Highlight';
+
+  const blueSwatch = document.createElement('button');
+  blueSwatch.className = 'bb-hl-swatch bb-hl-swatch--blue' + (targetMark?.classList.contains('bb-hl-blue') ? ' active' : '');
+  blueSwatch.title = 'Blue Highlight';
+
+  const pinkSwatch = document.createElement('button');
+  pinkSwatch.className = 'bb-hl-swatch bb-hl-swatch--pink' + (targetMark?.classList.contains('bb-hl-pink') ? ' active' : '');
+  pinkSwatch.title = 'Pink Highlight';
+
+  const divider = document.createElement('div');
+  divider.className = 'bb-hl-divider';
+
+  const underlineBtn = document.createElement('button');
+  underlineBtn.className = 'bb-hl-btn' + (targetMark?.classList.contains('bb-hl-underline') ? ' active' : '');
+  underlineBtn.title = 'Underline';
+  underlineBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>`;
+
+  const noteBtn = document.createElement('button');
+  noteBtn.className = 'bb-hl-btn' + (targetMark?.dataset.note ? ' active' : '');
+  noteBtn.title = 'Add Note';
+  noteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'bb-hl-btn bb-hl-btn--delete';
+  deleteBtn.title = 'Remove Highlight';
+  deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+
+  function applyStyleToSelection(className: string) {
+    if (targetMark) {
+      targetMark.className = className;
+    } else if (range) {
+      const mark = document.createElement('mark');
+      mark.className = className;
+      mark.style.cursor = 'pointer';
+      try {
+        range.surroundContents(mark);
+      } catch (_) {
+        const frag = range.extractContents();
+        mark.appendChild(frag);
+        range.insertNode(mark);
+      }
+      addMarkListeners(mark);
+    }
+    removeHighlightToolbar();
+    window.getSelection()?.removeAllRanges();
+  }
+
+  yellowSwatch.addEventListener('click', (e) => { e.stopPropagation(); applyStyleToSelection('bb-hl-yellow'); });
+  blueSwatch.addEventListener('click', (e) => { e.stopPropagation(); applyStyleToSelection('bb-hl-blue'); });
+  pinkSwatch.addEventListener('click', (e) => { e.stopPropagation(); applyStyleToSelection('bb-hl-pink'); });
+  underlineBtn.addEventListener('click', (e) => { e.stopPropagation(); applyStyleToSelection('bb-hl-underline'); });
+
+  noteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    let mark = targetMark;
+    if (!mark && range) {
+      mark = document.createElement('mark');
+      mark.className = 'bb-hl-yellow';
+      mark.style.cursor = 'pointer';
+      try { range.surroundContents(mark); } catch (_) {
+        const frag = range.extractContents();
+        mark.appendChild(frag);
+        range.insertNode(mark);
+      }
+      addMarkListeners(mark);
+    }
+    if (mark) {
+      showNotePopover(x, y + 40, mark);
+    }
+  });
+
+  deleteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (targetMark && targetMark.parentNode) {
+      const parent = targetMark.parentNode;
+      while (targetMark.firstChild) {
+        parent.insertBefore(targetMark.firstChild, targetMark);
+      }
+      parent.removeChild(targetMark);
+      parent.normalize();
+    }
+    removeHighlightToolbar();
+    window.getSelection()?.removeAllRanges();
+  });
+
+  toolbar.appendChild(yellowSwatch);
+  toolbar.appendChild(blueSwatch);
+  toolbar.appendChild(pinkSwatch);
+  toolbar.appendChild(divider);
+  toolbar.appendChild(underlineBtn);
+  toolbar.appendChild(noteBtn);
+  toolbar.appendChild(deleteBtn);
+
+  document.body.appendChild(toolbar);
+  activeHighlightToolbar = toolbar;
+}
+
+function showNotePopover(x: number, y: number, mark: HTMLElement) {
+  if (activeNotePopover) activeNotePopover.remove();
+  const popover = document.createElement('div');
+  popover.className = 'bb-hl-note-popover';
+  popover.style.left = `${Math.max(10, Math.min(x - 100, window.innerWidth - 240))}px`;
+  popover.style.top = `${y}px`;
+
+  popover.innerHTML = `
+    <span style="font-size:0.75rem; font-weight:700; color:#334155;">Annotation Note</span>
+    <textarea placeholder="Enter your note...">${mark.dataset.note || ''}</textarea>
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+      <button class="btn btn-ghost" id="note-cancel" style="font-size:0.75rem; padding:0.25rem 0.5rem; border-radius:4px; border:1px solid #cbd5e1; cursor:pointer;">Close</button>
+      <button class="btn" id="note-save" style="font-size:0.75rem; padding:0.25rem 0.6rem; background:#1a56db; color:#fff; border:none; border-radius:4px; cursor:pointer;">Save</button>
+    </div>
+  `;
+
+  popover.querySelector('#note-cancel')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    popover.remove();
+    activeNotePopover = null;
+  });
+
+  popover.querySelector('#note-save')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const txt = popover.querySelector('textarea')?.value.trim() || '';
+    if (txt) {
+      mark.dataset.note = txt;
+      mark.title = `Note: ${txt}`;
+    } else {
+      delete mark.dataset.note;
+      mark.removeAttribute('title');
+    }
+    popover.remove();
+    activeNotePopover = null;
+    removeHighlightToolbar();
+  });
+
+  document.body.appendChild(popover);
+  activeNotePopover = popover;
+}
+
+function addMarkListeners(mark: HTMLElement) {
+  mark.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const rect = mark.getBoundingClientRect();
+    showHighlightToolbar(rect.left + window.scrollX, rect.top + window.scrollY, mark, null);
+  });
+}
+
+// Directions Modal Function (Image 3)
+function openDirectionsModal(isMath: boolean, isSpr: boolean) {
+  const existing = document.getElementById('bb-directions-modal');
+  if (existing) existing.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'bb-directions-modal-backdrop';
+  backdrop.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.4);backdrop-filter:blur(2px);z-index:100004;';
+
+  const modal = document.createElement('div');
+  modal.id = 'bb-directions-modal';
+  modal.className = 'bb-directions-modal';
+
+  if (isMath || isSpr) {
+    modal.innerHTML = `
+      <div class="bb-directions-header">
+        <h3 class="bb-directions-title">Directions for Student-Produced Response Questions</h3>
+        <button class="bb-close-btn" id="close-directions-btn" style="background:none;border:none;font-size:1.25rem;cursor:pointer;color:#64748b;line-height:1;">&#10005;</button>
+      </div>
+      <div class="bb-directions-body">
+        <p>For <strong>student-produced response questions</strong>, solve each problem and enter your answer as described below.</p>
+        <ul>
+          <li>If you find <strong>more than one correct answer</strong>, enter only one answer.</li>
+          <li>You can enter up to 5 characters for a <strong>positive answer</strong> and up to 6 characters (including the negative sign) for a <strong>negative answer</strong>.</li>
+          <li>If your answer is a <strong>fraction</strong> that doesn't fit in the provided space, enter the decimal equivalent.</li>
+          <li>If your answer is a <strong>decimal</strong> that doesn't fit in the provided space, enter it by truncating or rounding at the fourth digit.</li>
+          <li>If your answer is a <strong>mixed number</strong> (such as 3½), enter it as an improper fraction (7/2) or its decimal equivalent (3.5).</li>
+          <li>Don't enter <strong>symbols</strong> such as a percent sign, comma, or dollar sign.</li>
+        </ul>
+
+        <table class="bb-spr-table">
+          <thead>
+            <tr>
+              <th>Answer</th>
+              <th>Acceptable ways to enter answer</th>
+              <th class="unacceptable">Unacceptable: will NOT receive credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>3.5</strong></td>
+              <td>3.5<br>3.50<br>7/2</td>
+              <td>31/2<br>3 1/2</td>
+            </tr>
+            <tr>
+              <td><strong>2/3</strong></td>
+              <td>2/3<br>.6666<br>.6667<br>0.666<br>0.6667</td>
+              <td>0.66<br>.66<br>0.67<br>.67</td>
+            </tr>
+            <tr>
+              <td><strong>-1/3</strong></td>
+              <td>-1/3<br>-.3333<br>-0.333</td>
+              <td>-.33<br>-0.33</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    modal.innerHTML = `
+      <div class="bb-directions-header">
+        <h3 class="bb-directions-title">Section Directions</h3>
+        <button class="bb-close-btn" id="close-directions-btn" style="background:none;border:none;font-size:1.25rem;cursor:pointer;color:#64748b;line-height:1;">&#10005;</button>
+      </div>
+      <div class="bb-directions-body">
+        <p>The questions in this section address a number of important reading and writing skills. Each question includes one or more passages, which may include a table or graph. Read each passage and question carefully, then choose the best answer to the question based on the passage(s).</p>
+        <p>All questions in this section are multiple-choice with four answer choices. Each question has a single best answer.</p>
+      </div>
+    `;
+  }
+
+  const closeModal = () => {
+    backdrop.remove();
+    modal.remove();
+  };
+
+  backdrop.addEventListener('click', closeModal);
+  document.body.appendChild(backdrop);
+  document.body.appendChild(modal);
+
+  modal.querySelector('#close-directions-btn')?.addEventListener('click', closeModal);
+}
+
 /* ── Simple inline-math renderer: *text* → <em>, ^n → superscript, basic fractions ── */
 function renderMath(text: string): string {
   if (!text) return '';
   return text
-    // bold **text**
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // italic *text*
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // newlines → <br>
     .replace(/\n/g, '<br>');
 }
 
@@ -114,8 +367,8 @@ export function renderTestSession(): HTMLElement {
   let idx = currentQuestionIndex;
   let drawerOpen = isDrawerOpen;
   let elimMode = isElimMode;
-  let annotateMode = false;
-  // Per-question timer elements
+  let highlightMode = false;
+
   function startTimer() {
     lastTimerTick = Date.now();
     if (timerInterval) clearInterval(timerInterval);
@@ -130,7 +383,7 @@ export function renderTestSession(): HTMLElement {
       if (!q) return;
 
       if (isTimerPaused) {
-        lastTimerTick = Date.now(); // keep resetting tick during pause
+        lastTimerTick = Date.now();
         return;
       }
       const now = Date.now();
@@ -139,8 +392,6 @@ export function renderTestSession(): HTMLElement {
         if (!sess.questionTimes) sess.questionTimes = {};
         sess.questionTimes[q.id] = (sess.questionTimes[q.id] || 0) + delta;
         lastTimerTick = now;
-        
-        // Save the time spent instantly in localStorage without dispatching full re-renders
         store.updateQuestionTime(q.id, sess.questionTimes[q.id]);
       }
       
@@ -165,6 +416,7 @@ export function renderTestSession(): HTMLElement {
     isDrawerOpen = drawerOpen;
     isElimMode = elimMode;
     stopTimer();
+    removeHighlightToolbar();
     root.innerHTML = '';
 
     if (lastRenderedIdx !== idx) {
@@ -175,6 +427,7 @@ export function renderTestSession(): HTMLElement {
     const q      = questions[idx];
     const sess   = store.getState().session!;
     const isMath = q.section === 'Math';
+    const isSpr  = !q.options || q.options.length === 0;
 
     const checked    = sess.checked    ?? new Set<string>();
     const eliminated = sess.eliminatedOptions[q.id] ?? new Set<string>();
@@ -194,7 +447,7 @@ export function renderTestSession(): HTMLElement {
     nav.innerHTML = `
       <div class="bb-nav-left">
         <span class="bb-nav-title">${sectionLabel}</span>
-        <button class="bb-dir-btn" title="Read directions">Directions &#9662;</button>
+        <button class="bb-dir-btn" id="dir-btn" title="Read directions">Directions &#9662;</button>
         ${(q.id.includes('-DC') || (q as any)._raw !== undefined) ? `
           <div class="bb-difficulty-edit-container" style="position: relative;">
             <button class="bb-set-diff-btn" id="set-diff-btn" title="Set Difficulty" style="display:flex;align-items:center;gap:0.3rem;font-size:0.8125rem;font-weight:500;color:var(--c-blue, #1a56db);background:transparent;border:1px solid #1a56db;border-radius:4px;cursor:pointer;padding:0.25rem 0.5rem;">
@@ -224,14 +477,19 @@ export function renderTestSession(): HTMLElement {
       </div>
       <div class="bb-nav-right">
         ${isMath ? `<button class="bb-calc-btn" id="calc-btn">${SVG.calc}&nbsp;Calculator</button><button class="bb-calc-btn" id="ref-btn" style="margin-right: 0.5rem;">${SVG.ref}&nbsp;Reference</button>` : ''}
-        <button class="bb-tool bb-annotate-btn ${annotateMode ? 'active' : ''}" id="annotate-btn" title="Highlight text (select text while active)">
+        <button class="bb-tool bb-annotate-btn ${highlightMode ? 'active' : ''}" id="highlight-btn" title="Highlight text (select text to highlight)">
           <span class="bb-tool-icon">${SVG.pencil}</span>
-          <span class="bb-tool-label">Annotate</span>
+          <span class="bb-tool-label">Highlight</span>
         </button>
         <button class="bb-exit" id="exit-btn">Exit Practice</button>
       </div>
     `;
     root.appendChild(nav);
+
+    nav.querySelector('#dir-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDirectionsModal(isMath, isSpr);
+    });
 
     /* Dotted Color bar */
     const bar = document.createElement('div');
@@ -243,7 +501,6 @@ export function renderTestSession(): HTMLElement {
     main.className = 'bb-main';
     main.style.position = 'relative';
 
-    // Detect if Math question has media (SVG or IMG) to show in split-screen layout
     let hasMedia = false;
     let leftHTML = '';
     let rightHTML = q.questionText;
@@ -252,16 +509,12 @@ export function renderTestSession(): HTMLElement {
       try {
         const div = document.createElement('div');
         div.innerHTML = q.questionText;
-        // Avoid extracting inline formula images (which have .math-img or role='math')
         const media = div.querySelector('svg, img:not(.math-img):not([role="math"])') as HTMLElement | null;
         if (media) {
           hasMedia = true;
-          // Strip fixed width/height attributes so the SVG/Image scales fluidly to fill the container
           media.removeAttribute('width');
           media.removeAttribute('height');
           media.setAttribute('style', 'width: 100%; height: auto; max-width: 800px; max-height: 85vh; object-fit: contain;');
-          
-          // Check if parent is a wrapper container (figure, standalone_image, image)
           const wrapper = media.parentElement;
           if (wrapper && (wrapper.tagName === 'FIGURE' || wrapper.className.includes('standalone_image') || wrapper.className.includes('image'))) {
             leftHTML = `<div class="bb-math-graphic-container" style="display:flex;align-items:center;justify-content:center;height:100%;padding:1.5rem;box-sizing:border-box;width:100%;">${media.outerHTML}</div>`;
@@ -272,7 +525,6 @@ export function renderTestSession(): HTMLElement {
           }
           rightHTML = div.innerHTML;
         } else if (q.passageText) {
-          // Pattern B stimulus question: passageText has the equation/context, questionText has the prompt
           hasMedia = true;
           leftHTML = q.passageText;
         }
@@ -294,7 +546,7 @@ export function renderTestSession(): HTMLElement {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-top:-2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>&nbsp;Report Issue
         </button>
         <div class="bb-q-sep"></div>
-        <button class="bb-q-tool-btn ${elimMode ? 'active' : ''}" id="elim-btn" title="Toggle Eliminate Mode">
+        <button class="bb-q-tool-btn ${elimMode ? 'active' : ''}" id="elim-btn" title="Toggle Eliminate Mode" ${isSpr ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>
           <span style="text-decoration:line-through;font-weight:700;font-size:0.8rem;">ABC</span>&nbsp;Eliminate
         </button>
       </div>
@@ -318,7 +570,7 @@ export function renderTestSession(): HTMLElement {
       passCol.id = 'left-col';
       passCol.innerHTML = `
         <button class="bb-expand-btn" title="Expand passage">&#10548;</button>
-        <div class="bb-passage-text">${isMath ? renderMath(leftHTML) : renderMath(leftHTML)}</div>
+        <div class="bb-passage-text">${renderMath(leftHTML)}</div>
       `;
       main.appendChild(passCol);
 
@@ -389,7 +641,7 @@ export function renderTestSession(): HTMLElement {
 
     if (questionTimerEl) {
       if (isTimerPaused) {
-        questionTimerEl.style.color = '#ef4444'; // red
+        questionTimerEl.style.color = '#ef4444';
         questionTimerEl.textContent = 'PAUSED';
       } else {
         questionTimerEl.style.color = '#111';
@@ -402,6 +654,7 @@ export function renderTestSession(): HTMLElement {
 
     /* ───── OPTIONS ───── */
     const optsEl = root.querySelector('#opts')!;
+    const actionEl = root.querySelector('#action')!;
 
     if (q.options && q.options.length > 0) {
       q.options.forEach(opt => {
@@ -425,7 +678,6 @@ export function renderTestSession(): HTMLElement {
             <div class="bb-opt-text" style="text-decoration: line-through; opacity: 0.5;">${renderMath(opt.text)}</div>
             <button class="bb-opt-undo-btn" style="background:none;border:none;color:#1a56db;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0.5rem;font-family:var(--font);margin-left:auto; z-index:10;">Undo</button>
           `;
-          // Click on Undo un-eliminates
           div.querySelector('.bb-opt-undo-btn')?.addEventListener('click', (e) => {
             e.stopPropagation();
             store.toggleEliminateOption(q.id, opt.id);
@@ -444,7 +696,6 @@ export function renderTestSession(): HTMLElement {
             ` : ''}
           `;
 
-          // Clicking the eliminate button eliminates the option
           if (elimMode && !isChecked) {
             div.querySelector('.bb-opt-elim-btn')?.addEventListener('click', (e) => {
               e.stopPropagation();
@@ -454,11 +705,10 @@ export function renderTestSession(): HTMLElement {
           }
         }
 
-        // Clicking the card selects it (unless eliminated or checked-and-correct)
         div.addEventListener('click', () => {
           if (!isElim && (!isChecked || !isCorrect)) {
             if (isChecked) {
-              sess.checked.delete(q.id); // allow checking new answer
+              sess.checked.delete(q.id);
             }
             store.answerQuestion(q.id, opt.id);
             draw();
@@ -476,13 +726,13 @@ export function renderTestSession(): HTMLElement {
         optsEl.appendChild(div);
       });
     } else {
-      /* SPR / grid-in */
-      const isCorrect = isChecked && (selected === q.correctAnswer || Number(selected) === Number(q.correctAnswer));
+      /* SPR / grid-in (Student-Produced Response) */
+      const isCorrect = isChecked && areAnswersEquivalent(q.correctAnswer, selected || '');
       const sprCls = isChecked ? (isCorrect ? 'spr-input correct' : 'spr-input incorrect') : 'spr-input';
 
       optsEl.innerHTML = `
         <div class="bb-spr-container">
-          <label>Your answer:</label>
+          <label style="font-weight:700; font-size:0.9375rem; color:#1e293b;">Your answer:</label>
           <input type="text" class="${sprCls}" id="spr-input-${q.id}" value="${selected || ''}" ${(isChecked && isCorrect) ? 'disabled' : ''} placeholder="Enter answer" autocomplete="off" />
         </div>
       `;
@@ -490,20 +740,34 @@ export function renderTestSession(): HTMLElement {
       const inp = optsEl.querySelector(`#spr-input-${q.id}`) as HTMLInputElement;
       if (inp) {
         inp.addEventListener('input', e => {
+          const val = (e.target as HTMLInputElement).value;
           if (isChecked && !isCorrect) {
-            sess.checked.delete(q.id); // clear check status on typing
+            sess.checked.delete(q.id);
           }
-          store.answerQuestion(q.id, (e.target as HTMLInputElement).value);
+          // SILENT UPDATE: does not destroy DOM, preserving input focus and cursor!
+          store.answerQuestion(q.id, val, true);
+
+          // Dynamically manage Check Answer button without re-rendering view
+          let checkBtn = actionEl.querySelector('.bb-check-btn') as HTMLButtonElement | null;
+          if (val.trim() !== '') {
+            if (!checkBtn && !isChecked) {
+              checkBtn = document.createElement('button');
+              checkBtn.className = 'bb-check-btn';
+              checkBtn.textContent = 'Check Answer';
+              checkBtn.addEventListener('click', () => { store.checkAnswer(q.id, sess.questionTimes?.[q.id] || 0); draw(); });
+              actionEl.appendChild(checkBtn);
+            }
+          } else if (checkBtn && !isChecked) {
+            checkBtn.remove();
+          }
         });
         inp.addEventListener('change', e => {
-          store.answerQuestion(q.id, (e.target as HTMLInputElement).value);
+          store.answerQuestion(q.id, (e.target as HTMLInputElement).value, true);
         });
       }
     }
 
     /* ───── ACTION AREA ───── */
-    const actionEl = root.querySelector('#action')!;
-
     if (selected && !isChecked) {
       const btn = document.createElement('button');
       btn.className = 'bb-check-btn';
@@ -513,7 +777,7 @@ export function renderTestSession(): HTMLElement {
     }
 
     if (isChecked) {
-      const ok = selected === q.correctAnswer;
+      const ok = areAnswersEquivalent(q.correctAnswer, selected || '');
       const isMcq = q.options && q.options.length > 0;
       const choiceExplanation = isMcq ? getChoiceExplanation(q.rationale, selected || '') : q.rationale;
       const fb = document.createElement('div');
@@ -526,7 +790,7 @@ export function renderTestSession(): HTMLElement {
         <div class="bb-feedback-body" id="explanation-body" style="margin-top:0.5rem; line-height:1.6;">
           ${renderMath(choiceExplanation || q.rationale)}
         </div>
-        ${!ok ? '<div class="bb-feedback-hint" style="margin-top:0.5rem; font-size:0.75rem; opacity:0.85;">Select another option to try again.</div>' : ''}
+        ${!ok ? `<div class="bb-feedback-hint" style="margin-top:0.5rem; font-size:0.75rem; opacity:0.85;">${isMcq ? 'Select another option to try again.' : 'Enter another answer to try again.'}</div>` : ''}
       `;
       
       if (isMcq) {
@@ -561,7 +825,6 @@ export function renderTestSession(): HTMLElement {
           diffDropdown.classList.toggle('show');
         });
 
-        // Close when clicking outside
         const closeDropdown = () => {
           diffDropdown.classList.remove('show');
           document.removeEventListener('click', closeDropdown);
@@ -613,6 +876,7 @@ export function renderTestSession(): HTMLElement {
     root.querySelector('#exit-btn')?.addEventListener('click', () => {
       document.getElementById('desmos-modal')?.remove();
       document.body.classList.remove('calc-docked');
+      removeHighlightToolbar();
       stopTimer();
       store.endSession();
     });
@@ -669,52 +933,40 @@ export function renderTestSession(): HTMLElement {
     root.querySelector('#next-btn')?.addEventListener('click', () => { if (isLast) { stopTimer(); store.endSession(); } else { idx++; draw(); } });
     root.querySelector('#nav-counter')?.addEventListener('click', () => { drawerOpen = !drawerOpen; draw(); });
 
-    /* Annotate: toggle highlight mode and handle text selection */
-    root.querySelector('#annotate-btn')?.addEventListener('click', () => {
-      annotateMode = !annotateMode;
-      const btn = root.querySelector('#annotate-btn') as HTMLElement | null;
-      if (btn) btn.classList.toggle('active', annotateMode);
-      document.body.style.cursor = annotateMode ? 'text' : '';
-      if (!annotateMode) {
-        // Show toast
-        const t = document.createElement('div');
-        t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:0.4rem 1rem;border-radius:999px;font-size:0.8rem;z-index:9999;opacity:1;transition:opacity 0.4s;pointer-events:none;';
-        t.textContent = 'Highlight mode off';
-        document.body.appendChild(t);
-        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 1200);
+    /* Highlight button toggle */
+    root.querySelector('#highlight-btn')?.addEventListener('click', () => {
+      highlightMode = !highlightMode;
+      const btn = root.querySelector('#highlight-btn') as HTMLElement | null;
+      if (btn) btn.classList.toggle('active', highlightMode);
+      document.body.style.cursor = highlightMode ? 'text' : '';
+      if (!highlightMode) {
+        removeHighlightToolbar();
       }
     });
 
-    /* Highlight on mouseup when annotate mode is on */
-    root.addEventListener('mouseup', () => {
-      if (!annotateMode) return;
+    /* Mouseup listener: Trigger floating Highlight toolbar on text selection (Image 2) */
+    root.addEventListener('mouseup', (e: MouseEvent) => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
-      // Only highlight inside the passage or question columns
+
       const container = root.querySelector('.bb-passage-text, .bb-q-text, .bb-single-inner');
       if (!container || !container.contains(range.commonAncestorContainer)) return;
-      const mark = document.createElement('mark');
-      mark.style.cssText = 'background:#fef08a;border-radius:2px;cursor:pointer;';
-      mark.title = 'Click to remove highlight';
-      mark.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const parent = mark.parentNode;
-        if (parent) { parent.replaceChild(document.createTextNode(mark.textContent || ''), mark); parent.normalize(); }
-      });
-      try { range.surroundContents(mark); } catch (_) {
-        // If selection spans multiple nodes, use extractContents
-        const frag = range.extractContents();
-        mark.appendChild(frag);
-        range.insertNode(mark);
-      }
-      sel.removeAllRanges();
+
+      const text = range.toString().trim();
+      if (text.length === 0) return;
+
+      showHighlightToolbar(e.pageX, e.pageY - 10, null, range);
     });
 
+    // Attach click handlers to existing marks
+    root.querySelectorAll('mark').forEach(m => addMarkListeners(m as HTMLElement));
 
     root.querySelector('#elim-btn')?.addEventListener('click', () => {
-      elimMode = !elimMode;
-      draw();
+      if (!isSpr) {
+        elimMode = !elimMode;
+        draw();
+      }
     });
 
     /* Desmos calculator */
@@ -834,158 +1086,28 @@ export function renderTestSession(): HTMLElement {
             </div>
             <div style="flex:1; overflow-y:auto; padding:1.25rem; font-family:var(--font); font-size:0.8rem; color:#1e293b; line-height:1.4; background:#f8fafc;">
               <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
-                
-                <!-- Circle -->
                 <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <circle cx="50" cy="50" r="35" stroke="#334155" stroke-width="2" fill="none" />
-                    <line x1="50" y1="50" x2="85" y2="50" stroke="#64748b" stroke-width="1.5" />
-                    <text x="65" y="42" font-size="14" font-style="italic" fill="#0f172a">r</text>
-                  </svg>
                   <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Circle</div>
                   <div style="font-size:0.75rem; color:#475569;">$A = \\pi r^2$</div>
                   <div style="font-size:0.75rem; color:#475569;">$C = 2\\pi r$</div>
                 </div>
-
-                <!-- Rectangle -->
                 <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="65" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <rect x="15" y="25" width="70" height="50" stroke="#334155" stroke-width="2" fill="none" />
-                    <text x="45" y="90" font-size="14" font-style="italic" fill="#0f172a">l</text>
-                    <text x="90" y="55" font-size="14" font-style="italic" fill="#0f172a">w</text>
-                  </svg>
                   <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Rectangle</div>
                   <div style="font-size:0.75rem; color:#475569;">$A = l w$</div>
                 </div>
-
-                <!-- Triangle -->
                 <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <polygon points="10,80 90,80 60,20" stroke="#334155" stroke-width="2" fill="none" />
-                    <line x1="60" y1="20" x2="60" y2="80" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1.5" />
-                    <polyline points="55,80 55,75 60,75" stroke="#64748b" stroke-width="1" fill="none" />
-                    <text x="65" y="50" font-size="14" font-style="italic" fill="#0f172a">h</text>
-                    <text x="48" y="95" font-size="14" font-style="italic" fill="#0f172a">b</text>
-                  </svg>
                   <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Triangle</div>
                   <div style="font-size:0.75rem; color:#475569;">$A = \\frac{1}{2} b h$</div>
                 </div>
-
-                <!-- Pythagorean Theorem -->
                 <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <polygon points="20,80 80,80 20,20" stroke="#334155" stroke-width="2" fill="none" />
-                    <rect x="20" y="72" width="8" height="8" stroke="#64748b" stroke-width="1.5" fill="none" />
-                    <text x="8" y="55" font-size="14" font-style="italic" fill="#0f172a">a</text>
-                    <text x="48" y="95" font-size="14" font-style="italic" fill="#0f172a">b</text>
-                    <text x="55" y="45" font-size="14" font-style="italic" fill="#0f172a">c</text>
-                  </svg>
                   <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Right Triangle</div>
                   <div style="font-size:0.75rem; color:#475569;">$c^2 = a^2 + b^2$</div>
                 </div>
-
-                <!-- Special Right Triangle 1 -->
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); grid-column: span 2;">
-                  <div style="display:flex; justify-content:space-around; align-items:center;">
-                    <div>
-                      <svg width="100" height="75" viewBox="0 0 120 90" style="display:block;">
-                        <polygon points="20,80 100,80 20,20" stroke="#334155" stroke-width="2" fill="none" />
-                        <rect x="20" y="72" width="8" height="8" stroke="#64748b" stroke-width="1.5" fill="none" />
-                        <text x="8" y="55" font-size="12" fill="#0f172a">x</text>
-                        <text x="50" y="94" font-size="12" fill="#0f172a">x\\sqrt{3}</text>
-                        <text x="65" y="45" font-size="12" fill="#0f172a">2x</text>
-                        <text x="32" y="75" font-size="10" fill="#64748b">60°</text>
-                        <text x="23" y="38" font-size="10" fill="#64748b">30°</text>
-                      </svg>
-                    </div>
-                    <div>
-                      <svg width="80" height="80" viewBox="0 0 100 100" style="display:block;">
-                        <polygon points="20,80 80,80 20,20" stroke="#334155" stroke-width="2" fill="none" />
-                        <rect x="20" y="72" width="8" height="8" stroke="#64748b" stroke-width="1.5" fill="none" />
-                        <text x="8" y="55" font-size="12" fill="#0f172a">x</text>
-                        <text x="48" y="95" font-size="12" fill="#0f172a">x</text>
-                        <text x="52" y="45" font-size="12" fill="#0f172a">x\\sqrt{2}</text>
-                        <text x="32" y="75" font-size="10" fill="#64748b">45°</text>
-                        <text x="23" y="38" font-size="10" fill="#64748b">45°</text>
-                      </svg>
-                    </div>
-                  </div>
-                  <div style="font-weight:700; font-size:0.85rem; margin-top:0.5rem; color:#0f172a;">Special Right Triangles</div>
-                </div>
-
-                <!-- Cylinder -->
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <ellipse cx="50" cy="25" rx="25" ry="8" stroke="#334155" stroke-width="2" fill="none" />
-                    <ellipse cx="50" cy="75" rx="25" ry="8" stroke="#334155" stroke-width="2" fill="none" />
-                    <line x1="25" y1="25" x2="25" y2="75" stroke="#334155" stroke-width="2" />
-                    <line x1="75" y1="25" x2="75" y2="75" stroke="#334155" stroke-width="2" />
-                    <line x1="50" y1="25" x2="75" y2="25" stroke="#64748b" stroke-width="1.5" />
-                    <line x1="50" y1="25" x2="50" y2="75" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1.5" />
-                    <text x="60" y="21" font-size="12" font-style="italic" fill="#0f172a">r</text>
-                    <text x="42" y="55" font-size="12" font-style="italic" fill="#0f172a">h</text>
-                  </svg>
-                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Cylinder</div>
-                  <div style="font-size:0.75rem; color:#475569;">$V = \\pi r^2 h$</div>
-                </div>
-
-                <!-- Cone -->
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <ellipse cx="50" cy="75" rx="25" ry="8" stroke="#334155" stroke-width="2" fill="none" />
-                    <line x1="25" y1="75" x2="50" y2="20" stroke="#334155" stroke-width="2" />
-                    <line x1="75" y1="75" x2="50" y2="20" stroke="#334155" stroke-width="2" />
-                    <line x1="50" y1="75" x2="75" y2="75" stroke="#64748b" stroke-width="1.5" />
-                    <line x1="50" y1="20" x2="50" y2="75" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1.5" />
-                    <text x="60" y="71" font-size="12" font-style="italic" fill="#0f172a">r</text>
-                    <text x="42" y="50" font-size="12" font-style="italic" fill="#0f172a">h</text>
-                  </svg>
-                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Cone</div>
-                  <div style="font-size:0.75rem; color:#475569;">$V = \\frac{1}{3} \\pi r^2 h$</div>
-                </div>
-
-                <!-- Sphere -->
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <circle cx="50" cy="50" r="30" stroke="#334155" stroke-width="2" fill="none" />
-                    <ellipse cx="50" cy="50" rx="30" ry="10" stroke="#64748b" stroke-dasharray="3,3" stroke-width="1" fill="none" />
-                    <line x1="50" y1="50" x2="80" y2="50" stroke="#64748b" stroke-width="1.5" />
-                    <text x="65" y="42" font-size="12" font-style="italic" fill="#0f172a">r</text>
-                  </svg>
-                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Sphere</div>
-                  <div style="font-size:0.75rem; color:#475569;">$V = \\frac{4}{3} \\pi r^3$</div>
-                </div>
-
-                <!-- Rectangular Prism -->
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:0.75rem; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                  <svg width="60" height="60" viewBox="0 0 100 100" style="margin:0 auto 0.5rem; display:block;">
-                    <rect x="15" y="35" width="50" height="40" stroke="#334155" stroke-width="2" fill="none" />
-                    <rect x="35" y="15" width="50" height="40" stroke="#334155" stroke-width="1.5" stroke-dasharray="2,2" fill="none" />
-                    <line x1="15" y1="35" x2="35" y2="15" stroke="#334155" stroke-width="2" />
-                    <line x1="65" y1="35" x2="85" y2="15" stroke="#334155" stroke-width="2" />
-                    <line x1="15" y1="75" x2="35" y2="55" stroke="#334155" stroke-width="1.5" stroke-dasharray="2,2" />
-                    <line x1="65" y1="75" x2="85" y2="55" stroke="#334155" stroke-width="2" />
-                    <text x="40" y="88" font-size="12" font-style="italic" fill="#0f172a">l</text>
-                    <text x="75" y="70" font-size="12" font-style="italic" fill="#0f172a">w</text>
-                    <text x="88" y="38" font-size="12" font-style="italic" fill="#0f172a">h</text>
-                  </svg>
-                  <div style="font-weight:700; font-size:0.85rem; margin-bottom:0.25rem; color:#0f172a;">Rectangular Prism</div>
-                  <div style="font-size:0.75rem; color:#475569;">$V = l w h$</div>
-                </div>
-
-              </div>
-
-              <div style="margin-top:1.25rem; padding:0.75rem; background:#f1f5f9; border-radius:8px; border:1px solid #e2e8f0; font-size:0.75rem; color:#475569;">
-                <div style="font-weight:700; margin-bottom:0.25rem; color:#0f172a;">Additional Info:</div>
-                • The number of degrees of arc in a circle is 360.<br>
-                • The number of radians of arc in a circle is $2\\pi$.<br>
-                • The sum of the measures in degrees of the angles of a triangle is 180.
               </div>
             </div>
           `;
           document.body.appendChild(modal);
 
-          // Dragging code
           const rfh = document.getElementById('rfh')!;
           let ox = 0, oy = 0;
           const onMouseMove = (e: MouseEvent) => {
@@ -1008,7 +1130,6 @@ export function renderTestSession(): HTMLElement {
             modal!.remove();
           });
 
-          // Render MathJax LaTeX inside modal
           (window as any).MathJax?.typesetPromise?.([modal]);
         } else {
           modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
@@ -1063,7 +1184,6 @@ export function renderTestSession(): HTMLElement {
         const cell = document.createElement('div');
         cell.className = 'bb-drawer-cell';
 
-        // Target marker above current question
         const marker = document.createElement('span');
         marker.className = 'bb-drawer-curr-marker';
         if (isCurrent) {
@@ -1099,7 +1219,6 @@ export function renderTestSession(): HTMLElement {
       drawer.querySelector('#close-drawer-btn2')?.addEventListener('click', () => { drawerOpen = false; draw(); });
     }
 
-    // Trigger MathJax typeset to compile LaTeX math formulas
     setTimeout(() => {
       (window as any).MathJax?.typesetPromise?.();
     }, 10);
@@ -1109,7 +1228,7 @@ export function renderTestSession(): HTMLElement {
     if (store.getState().currentView !== 'test') {
       document.getElementById('desmos-modal')?.remove();
       document.body.classList.remove('calc-docked');
-      document.body.style.cursor = '';
+      removeHighlightToolbar();
       stopTimer();
       window.removeEventListener('keydown', handleKeyDown);
       return;
@@ -1118,7 +1237,6 @@ export function renderTestSession(): HTMLElement {
     const active = document.activeElement;
     const isSprInput = !!(active && active.id && active.id.startsWith('spr-input-'));
     
-    // If typing in SPR input, ignore all shortcut keys except Enter
     if (isSprInput && e.key !== 'Enter') {
       return;
     }
@@ -1134,7 +1252,6 @@ export function renderTestSession(): HTMLElement {
     const isChecked = checked.has(q.id);
     const selected = sess.answers[q.id];
 
-    // MCQ keys
     if (!isChecked && q.options && q.options.length > 0) {
       const key = e.key.toUpperCase();
       if (['A', 'B', 'C', 'D'].includes(key)) {

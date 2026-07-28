@@ -1,7 +1,7 @@
 import type { AppState, Question, TestSession } from '../types';
 import { calculatePredictedScore, updateTopicMastery } from '../utils/scoring';
 
-function parseFractionOrDecimal(val: string): number {
+export function parseFractionOrDecimal(val: string): number {
   const s = val.trim();
   if (s.includes('/')) {
     const parts = s.split('/');
@@ -16,7 +16,7 @@ function parseFractionOrDecimal(val: string): number {
   return Number(s);
 }
 
-function areAnswersEquivalent(ans1: string, ans2: string): boolean {
+export function areAnswersEquivalent(ans1: string, ans2: string): boolean {
   if (!ans1 || !ans2) return false;
   const correctVariants = ans1.split(',').map(s => s.trim().toUpperCase());
   const userAns = ans2.trim().toUpperCase();
@@ -217,10 +217,13 @@ class Store {
     this.notify();
   }
 
-  public answerQuestion(questionId: string, optionId: string) {
+  public answerQuestion(questionId: string, optionId: string, silent = false) {
     if (this.state.session) {
       this.state.session.answers[questionId] = optionId;
-      this.notify();
+      saveState(this.state);
+      if (!silent) {
+        this.notify();
+      }
     }
   }
   
