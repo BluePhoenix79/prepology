@@ -21,6 +21,13 @@ export interface Question {
   official?: boolean;
 }
 
+export interface Annotation {
+  id: string;
+  text: string;
+  style: string;
+  note?: string;
+}
+
 export interface TestSession {
   id: string;
   startTime: number;
@@ -34,6 +41,16 @@ export interface TestSession {
   eliminatedOptions: Record<string, Set<string>>; // questionId -> set of optionIds
   questionTimes?: Record<string, number>; // questionId -> accumulated seconds
   completed: boolean;
+  annotations?: Record<string, Annotation[]>; // questionId -> list of annotations
+  drawings?: Record<string, string>; // questionId -> canvas data URL
+  isStructuredSession?: boolean;
+  sessionConfig?: {
+    section?: Section | 'Both';
+    difficulty?: number;
+    domain?: string | string[];
+    skill?: string;
+    questionCount?: number;
+  };
 }
 
 export interface ReportedIssue {
@@ -72,5 +89,8 @@ export interface AppState {
   stats: UserStats;
   questionBank: Question[];
   difficultyOverrides?: Record<string, Difficulty>;
+  theme?: 'dark' | 'light';
+  hideQuestionDetails?: boolean;
 }
+
 

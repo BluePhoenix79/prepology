@@ -281,23 +281,25 @@ export function renderAnalytics(): HTMLElement {
 
     <!-- Activity Trend stacked bar chart -->
     <div class="glass" style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;">
-      <h2 style="font-size:1.1rem; font-weight:700; color:var(--c-text);">Activity trend</h2>
-      <p style="font-size:0.75rem; color:var(--c-text-2); margin-top:0.25rem;">Wrong in red, correct in green. Harder questions look darker and sit below easier ones in each color. Each bar is one week.</p>
-      
-      <!-- Counts and Legend -->
-      <div style="display:flex; gap:1.5rem; align-items:center; margin-top:1rem; margin-bottom:1.5rem;">
-        <div style="display:flex; align-items:center; gap:0.35rem; font-size:0.85rem; font-weight:600; color:var(--c-text-2);">
-          <span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; background:var(--c-green); color:white; font-size:0.6rem; font-weight:800;">✓</span>
-          <span style="font-size:1.25rem; font-weight:800; color:var(--c-text);">${correct}</span> Correct
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+          <h2 style="font-size:1.1rem; font-weight:700; color:var(--c-text);">Activity Trend</h2>
+          <p style="font-size:0.75rem; color:var(--c-text-2); margin-top:0.25rem;">Weekly practice breakdown showing correct vs. incorrect question attempts.</p>
         </div>
-        <div style="display:flex; align-items:center; gap:0.35rem; font-size:0.85rem; font-weight:600; color:var(--c-text-2);">
-          <span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; background:var(--c-red); color:white; font-size:0.6rem; font-weight:800;">✗</span>
-          <span style="font-size:1.25rem; font-weight:800; color:var(--c-text);">${wrong}</span> Wrong
+
+        <!-- Legend Badges -->
+        <div style="display:flex; gap:1.25rem; align-items:center;">
+          <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:600; color:var(--c-text);">
+            <span style="width:12px; height:12px; border-radius:3px; background:var(--c-green); display:inline-block;"></span> Correct (${correct})
+          </div>
+          <div style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:600; color:var(--c-text);">
+            <span style="width:12px; height:12px; border-radius:3px; background:var(--c-red); display:inline-block;"></span> Incorrect (${wrong})
+          </div>
         </div>
       </div>
 
       <!-- Weekly Columns Chart Container -->
-      <div style="height:${chartHeightPx + 40}px; display:flex; align-items:flex-end; gap:8px; border-bottom:1px solid var(--c-border); padding-bottom:4px; overflow-x:auto;">
+      <div style="height:${chartHeightPx + 40}px; display:flex; align-items:flex-end; gap:8px; border-bottom:1px solid var(--c-border); padding-bottom:4px; margin-top:1.5rem; overflow-x:auto;">
         ${weeklyData.map((bin, i) => {
           const correctSum = bin.correct[1] + bin.correct[2] + bin.correct[3];
           const wrongSum = bin.wrong[1] + bin.wrong[2] + bin.wrong[3];
@@ -307,26 +309,15 @@ export function renderAnalytics(): HTMLElement {
           const pctHeight = (total / maxWeeklyTotal) * chartHeightPx;
           const showLabel = i % 3 === 0 || i === weeklyData.length - 1;
 
-          // Inner stacked bars sizes
-          const getBarPct = (val: number) => total > 0 ? (val / total) * 100 : 0;
-          const w3 = getBarPct(bin.wrong[3]);
-          const w2 = getBarPct(bin.wrong[2]);
-          const w1 = getBarPct(bin.wrong[1]);
-          const c3 = getBarPct(bin.correct[3]);
-          const c2 = getBarPct(bin.correct[2]);
-          const c1 = getBarPct(bin.correct[1]);
+          // Simple 2-color breakdown (Correct vs Wrong)
+          const correctPct = total > 0 ? (correctSum / total) * 100 : 0;
+          const wrongPct = total > 0 ? (wrongSum / total) * 100 : 0;
 
           return `
             <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:24px;">
-              <div class="weekly-bar-stacked" style="height:${Math.max(4, pctHeight)}px; width:14px; border-radius:3px; overflow:hidden; display:flex; flex-direction:column-reverse; background:var(--c-elevated); cursor:pointer;" title="Week of ${bin.label}: ${total} attempts (${correctSum} correct, ${wrongSum} wrong)">
-                <!-- WRONG segments (Difficulty 3 -> 2 -> 1) -->
-                <div style="height:${w3}%; background:#991b1b; width:100%;"></div>
-                <div style="height:${w2}%; background:var(--c-red); width:100%;"></div>
-                <div style="height:${w1}%; background:#fca5a5; width:100%;"></div>
-                <!-- CORRECT segments (Difficulty 3 -> 2 -> 1) -->
-                <div style="height:${c3}%; background:#166534; width:100%;"></div>
-                <div style="height:${c2}%; background:var(--c-green); width:100%;"></div>
-                <div style="height:${c1}%; background:#86efac; width:100%;"></div>
+              <div class="weekly-bar-stacked" style="height:${Math.max(4, pctHeight)}px; width:16px; border-radius:4px; overflow:hidden; display:flex; flex-direction:column-reverse; background:var(--c-elevated); cursor:pointer;" title="Week of ${bin.label}: ${total} attempts (${correctSum} correct, ${wrongSum} wrong)">
+                <div style="height:${wrongPct}%; background:var(--c-red); width:100%;"></div>
+                <div style="height:${correctPct}%; background:var(--c-green); width:100%;"></div>
               </div>
               <div style="font-size:0.6rem; color:var(--c-text-3); margin-top:8px; height:12px; white-space:nowrap;">
                 ${showLabel ? bin.label : ''}

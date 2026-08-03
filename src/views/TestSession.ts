@@ -114,14 +114,35 @@ function showHighlightToolbar(x: number, y: number, targetMark: HTMLElement | nu
 
   deleteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (targetMark && targetMark.parentNode) {
-      const parent = targetMark.parentNode;
-      while (targetMark.firstChild) {
-        parent.insertBefore(targetMark.firstChild, targetMark);
+    const marksToRemove: HTMLElement[] = [];
+    if (targetMark) {
+      marksToRemove.push(targetMark);
+    } else if (range) {
+      const container = range.commonAncestorContainer.nodeType === 1 ? (range.commonAncestorContainer as HTMLElement) : range.commonAncestorContainer.parentElement;
+      if (container) {
+        if (container.tagName === 'MARK') {
+          marksToRemove.push(container);
+        } else {
+          container.querySelectorAll('mark').forEach(m => {
+            if (range.intersectsNode(m)) {
+              marksToRemove.push(m as HTMLElement);
+            }
+          });
+        }
       }
-      parent.removeChild(targetMark);
-      parent.normalize();
     }
+
+    marksToRemove.forEach(mark => {
+      if (mark && mark.parentNode) {
+        const parent = mark.parentNode;
+        while (mark.firstChild) {
+          parent.insertBefore(mark.firstChild, mark);
+        }
+        parent.removeChild(mark);
+        parent.normalize();
+      }
+    });
+
     removeHighlightToolbar();
     window.getSelection()?.removeAllRanges();
   });
@@ -438,19 +459,28 @@ export function renderTestSession(): HTMLElement {
     const isLast     = idx === questions.length - 1;
     const diffLabel  = q.difficulty === 1 ? 'Easy' : q.difficulty === 2 ? 'Medium' : 'Hard';
     const displayId  = q.id.replace(/_(read|math)$/i, '');
+    const hideDetails = store.getState().hideQuestionDetails;
 
-    const sectionLabel = q.section === 'Math' ? 'Section 2: Math' : 'Section 1: Reading and Writing';
+    const sectionLabel = q.section === 'Math' ? 'Math' : 'Reading & Writing';
 
     /* ───── NAV BAR ───── */
     const nav = document.createElement('div');
     nav.className = 'bb-nav';
     nav.innerHTML = `
-      <div class="bb-nav-left">
-        <span class="bb-nav-title">${sectionLabel}</span>
-        <button class="bb-dir-btn" id="dir-btn" title="Read directions">Directions &#9662;</button>
+      <div class="bb-nav-left" style="display:flex; align-items:center; gap:0.5rem;">
+        <span class="bb-nav-title" style="font-weight: 700; color: #1e293b; margin-right: 0.5rem;">${sectionLabel}</span>
+        <button class="bb-hdr-btn" id="dir-btn" title="Read directions">Directions &#9662;</button>
+        <button class="bb-hdr-btn" id="toggle-info-btn" title="Toggle question info visibility">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-top:-1px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>&nbsp;${hideDetails ? 'Show Info' : 'Hide Info'}
+        </button>
+        ${isMath ? `
+          <button class="bb-hdr-btn" id="draw-btn" title="Math Scratchpad Canvas">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle;margin-top:-1px;"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.5 7.5"/></svg>&nbsp;Scratchpad
+          </button>
+        ` : ''}
         ${(q.id.includes('-DC') || (q as any)._raw !== undefined) ? `
           <div class="bb-difficulty-edit-container" style="position: relative;">
-            <button class="bb-set-diff-btn" id="set-diff-btn" title="Set Difficulty" style="display:flex;align-items:center;gap:0.3rem;font-size:0.8125rem;font-weight:500;color:var(--c-blue, #1a56db);background:transparent;border:1px solid #1a56db;border-radius:4px;cursor:pointer;padding:0.25rem 0.5rem;">
+            <button class="bb-hdr-btn" id="set-diff-btn" title="Set Difficulty" style="color:var(--c-blue, #1a56db); border-color:#3b82f6;">
               Set Difficulty: ${diffLabel} &#9662;
             </button>
             <div id="diff-dropdown" class="bb-diff-dropdown" style="position: absolute; top: 100%; left: 0; margin-top: 4px; background: white; border: 1px solid #e4e4e4; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10001; min-width: 100px;">
@@ -462,28 +492,37 @@ export function renderTestSession(): HTMLElement {
         ` : ''}
       </div>
       <div class="bb-nav-center" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 2px; height: 100%;">
-        <div id="q-timer" style="font-size: 1.15rem; font-weight: 700; color: #111; font-family: monospace; line-height: 1.1;">00:00</div>
+        <div id="q-timer" style="font-size: 1.15rem; font-weight: 700; color: var(--c-text); font-family: monospace; line-height: 1.1;">00:00</div>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <button id="pause-timer-btn" style="width: 20px; height: 20px; border-radius: 50%; border: 1px solid #d1d5db; background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;" title="${isTimerPaused ? 'Resume' : 'Pause'}">
+          <button id="pause-timer-btn" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid #cbd5e1; background: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="${isTimerPaused ? 'Resume' : 'Pause'}">
             ${isTimerPaused 
-              ? `<svg width="8" height="8" viewBox="0 0 24 24" fill="#4b5563" stroke="#4b5563" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
-              : `<svg width="8" height="8" viewBox="0 0 24 24" fill="#4b5563" stroke="#4b5563" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
+              ? `<svg width="8" height="8" viewBox="0 0 24 24" fill="#334155" stroke="#334155" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
+              : `<svg width="8" height="8" viewBox="0 0 24 24" fill="#334155" stroke="#334155" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
             }
           </button>
-          <button id="hide-timer-btn" style="padding: 1px 10px; border-radius: 9999px; border: 1px solid #d1d5db; background: white; color: #1a56db; font-size: 0.7rem; font-weight: 500; cursor: pointer;">
+          <button id="hide-timer-btn" style="padding: 2px 10px; border-radius: 9999px; border: 1px solid #cbd5e1; background: #ffffff; color: #2563eb; font-size: 0.7rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
             ${isTimerHidden ? 'Show' : 'Hide'}
           </button>
         </div>
       </div>
-      <div class="bb-nav-right">
-        ${isMath ? `<button class="bb-calc-btn" id="calc-btn">${SVG.calc}&nbsp;Calculator</button><button class="bb-calc-btn" id="ref-btn" style="margin-right: 0.5rem;">${SVG.ref}&nbsp;Reference</button>` : ''}
-        <button class="bb-tool bb-annotate-btn ${highlightMode ? 'active' : ''}" id="highlight-btn" title="Highlight text (select text to highlight)">
-          <span class="bb-tool-icon">${SVG.pencil}</span>
-          <span class="bb-tool-label">Highlight</span>
+      <div class="bb-nav-right" style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem;">
+        ${isMath ? `
+          <button class="bb-hdr-btn" id="calc-btn">${SVG.calc}&nbsp;Calculator</button>
+          <button class="bb-hdr-btn" id="ref-btn">${SVG.ref}&nbsp;Reference</button>
+        ` : ''}
+        <button class="bb-hdr-btn ${highlightMode ? 'active' : ''}" id="highlight-btn" title="Highlight text (select text to highlight)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle;margin-top:-1px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>&nbsp;Highlight
         </button>
-        <button class="bb-exit" id="exit-btn">Exit Practice</button>
+        <button class="bb-hdr-btn" id="exit-btn" style="font-weight:700;">${sess.isStructuredSession ? 'End Session' : 'Exit Practice'}</button>
       </div>
     `;
+    root.appendChild(nav);
+
+    nav.querySelector('#toggle-info-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      store.toggleHideQuestionDetails();
+      draw();
+    });
     root.appendChild(nav);
 
     nav.querySelector('#dir-btn')?.addEventListener('click', (e) => {
@@ -551,7 +590,7 @@ export function renderTestSession(): HTMLElement {
         </button>
       </div>
 
-      <div class="bb-q-meta">
+      <div class="bb-q-meta" ${hideDetails ? 'style="display:none;"' : ''}>
         <span class="bb-meta-pill">${q.skill}</span>
         <span class="bb-meta-pill bb-meta-pill--diff">${diffLabel}</span>
         <span class="bb-meta-id">ID: ${displayId}</span>
@@ -875,6 +914,8 @@ export function renderTestSession(): HTMLElement {
 
     root.querySelector('#exit-btn')?.addEventListener('click', () => {
       document.getElementById('desmos-modal')?.remove();
+      document.getElementById('scratchpad-modal')?.remove();
+      document.getElementById('reference-modal')?.remove();
       document.body.classList.remove('calc-docked');
       removeHighlightToolbar();
       stopTimer();
@@ -969,7 +1010,7 @@ export function renderTestSession(): HTMLElement {
       }
     });
 
-    /* Desmos calculator */
+    /* Official College Board Desmos calculator */
     if (isMath) {
       root.querySelector('#calc-btn')?.addEventListener('click', () => {
         let modal = document.getElementById('desmos-modal');
@@ -978,35 +1019,25 @@ export function renderTestSession(): HTMLElement {
           modal.id = 'desmos-modal';
           Object.assign(modal.style, {
             position: 'fixed', top: '70px', right: '24px',
-            width: '440px', height: '520px',
-            background: '#fff', border: '1px solid #e0e0e0',
-            borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+            width: '460px', height: '540px',
+            background: 'var(--c-surface)', border: '1px solid var(--c-border-md)',
+            borderRadius: '12px', boxShadow: 'var(--shadow-xl)',
             zIndex: '9999', display: 'flex', flexDirection: 'column',
             overflow: 'hidden', resize: 'both',
           });
           modal.innerHTML = `
-            <div id="dh" style="background:#1e293b;color:#fff;padding:0.625rem 1rem;cursor:move;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0;flex-shrink:0;user-select:none;">
-              <span style="font-size:0.875rem;font-weight:600;">Graphing Calculator</span>
+            <div id="dh" style="background:#ffffff;color:#0f172a;padding:0.625rem 1rem;cursor:move;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0;border-bottom:1px solid #e2e8f0;flex-shrink:0;user-select:none;">
+              <span style="font-size:0.875rem;font-weight:700;">Desmos Graphing Calculator</span>
               <div style="display:flex;align-items:center;gap:0.75rem;">
-                <button id="d-dock" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:0.85rem;line-height:1;font-weight:600;font-family:var(--font);" title="Dock to Left side">Dock</button>
-                <button id="dc" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:1rem;line-height:1;">&#10005;</button>
+                <button id="d-dock" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:0.85rem;line-height:1;font-weight:600;font-family:var(--font);" title="Dock to Left side">Dock</button>
+                <button id="dc" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:1.1rem;line-height:1;">&#10005;</button>
               </div>
             </div>
-            <div id="desmos-calc" style="flex:1;"></div>
+            <div style="flex:1; width:100%; height:100%; overflow:hidden; position:relative;">
+              <iframe src="https://www.desmos.com/testing/cb/graphing" style="position:absolute; top:-52px; left:0; width:100%; height:calc(100% + 52px); border:none;" title="Official College Board Desmos Calculator"></iframe>
+            </div>
           `;
           document.body.appendChild(modal);
-
-          let calcInstance: any = null;
-          const load = () => {
-            const el = document.getElementById('desmos-calc')!;
-            calcInstance = (window as any).Desmos?.GraphingCalculator(el);
-          };
-          if (!(window as any).Desmos) {
-            const s = document.createElement('script');
-            s.src = 'https://www.desmos.com/api/v1.8/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
-            s.onload = load;
-            document.head.appendChild(s);
-          } else load();
 
           const dh = document.getElementById('dh')!;
           let ox = 0, oy = 0;
@@ -1022,16 +1053,12 @@ export function renderTestSession(): HTMLElement {
           const onMouseUp = () => {
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
-            const calc = document.getElementById('desmos-calc');
-            if (calc) calc.style.pointerEvents = 'auto';
           };
 
           dh.addEventListener('mousedown', e => {
             if (document.body.classList.contains('calc-docked')) return;
             ox = e.clientX - modal!.offsetLeft;
             oy = e.clientY - modal!.offsetTop;
-            const calc = document.getElementById('desmos-calc');
-            if (calc) calc.style.pointerEvents = 'none';
             window.addEventListener('mousemove', onMouseMove);
             window.addEventListener('mouseup', onMouseUp);
           });
@@ -1054,12 +1081,197 @@ export function renderTestSession(): HTMLElement {
               modal!.style.left = 'unset';
               modal!.style.top = '70px';
               modal!.style.right = '24px';
-              modal!.style.width = '440px';
-              modal!.style.height = '520px';
+              modal!.style.width = '460px';
+              modal!.style.height = '540px';
             }
-            setTimeout(() => {
-              if (calcInstance) calcInstance.resize();
-            }, 310);
+          });
+        } else {
+          modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
+        }
+      });
+
+      /* Math Scratchpad Canvas Tool */
+      root.querySelector('#draw-btn')?.addEventListener('click', () => {
+        let modal = document.getElementById('scratchpad-modal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'scratchpad-modal';
+          Object.assign(modal.style, {
+            position: 'fixed', top: '70px', left: '24px',
+            width: '540px', height: '420px', minWidth: '340px', minHeight: '260px',
+            background: '#ffffff', border: '1px solid #cbd5e1',
+            borderRadius: '12px', boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
+            zIndex: '10000', display: 'flex', flexDirection: 'column',
+            overflow: 'hidden', resize: 'both'
+          });
+          modal.innerHTML = `
+            <div id="sph" style="background:#ffffff;color:#0f172a;padding:0.6rem 1rem;cursor:move;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;flex-shrink:0;user-select:none;">
+              <span style="font-size:0.875rem;font-weight:700;display:flex;align-items:center;gap:0.35rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.5 7.5"/></svg>Math Scratchpad</span>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <button id="sp-clear" style="background:#ffffff;border:1px solid #cbd5e1;color:#334155;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.75rem;font-weight:600;">Clear</button>
+                <button id="sp-close" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:1.1rem;line-height:1;">&#10005;</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0.75rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;">
+              <span style="font-size:0.75rem;color:#475569;font-weight:700;">Tool:</span>
+              <button id="sp-mode-pen" class="sp-tool-btn active" style="padding:3px 10px;border-radius:6px;border:1px solid #2563eb;background:#eff6ff;color:#2563eb;font-size:0.75rem;font-weight:600;cursor:pointer;">Marker</button>
+              <button id="sp-mode-eraser" class="sp-tool-btn" style="padding:3px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#ffffff;color:#475569;font-size:0.75rem;font-weight:600;cursor:pointer;">Eraser</button>
+              <div style="width:1px;height:16px;background:#cbd5e1;margin:0 2px;"></div>
+              <span style="font-size:0.75rem;color:#475569;font-weight:700;">Colors:</span>
+              <div id="sp-colors" style="display:flex;gap:5px;align-items:center;"></div>
+              <div style="width:1px;height:16px;background:#cbd5e1;margin:0 2px;"></div>
+              <span style="font-size:0.75rem;color:#475569;font-weight:700;">Size:</span>
+              <input type="range" id="sp-size" min="1" max="15" value="3" style="width:60px;" />
+            </div>
+            <div id="sp-canvas-wrapper" style="flex:1;position:relative;background:#ffffff;overflow:hidden;">
+              <canvas id="sp-canvas" style="width:100%;height:100%;display:block;cursor:crosshair;background:#ffffff;"></canvas>
+            </div>
+          `;
+          document.body.appendChild(modal);
+
+          const colors = ['#000000', '#2563eb', '#ef4444', '#16a34a', '#eab308', '#9333ea', '#f97316', '#64748b'];
+          const colorsContainer = modal.querySelector('#sp-colors')!;
+          let currentColor = '#2563eb';
+          let currentMode: 'pen' | 'eraser' = 'pen';
+          let currentSize = 3;
+
+          colors.forEach(c => {
+            const btn = document.createElement('button');
+            btn.style.cssText = `width:16px;height:16px;border-radius:50%;background:${c};border:${c === currentColor ? '2px solid #000' : '1px solid rgba(0,0,0,0.2)'};cursor:pointer;padding:0;box-shadow:0 1px 2px rgba(0,0,0,0.1);`;
+            btn.addEventListener('click', () => {
+              currentColor = c;
+              currentMode = 'pen';
+              colorsContainer.querySelectorAll('button').forEach(b => (b as HTMLElement).style.border = '1px solid rgba(0,0,0,0.2)');
+              btn.style.border = '2px solid #000';
+
+              penBtn.style.border = '1px solid #2563eb';
+              penBtn.style.background = '#eff6ff';
+              penBtn.style.color = '#2563eb';
+              eraserBtn.style.border = '1px solid #cbd5e1';
+              eraserBtn.style.background = '#ffffff';
+              eraserBtn.style.color = '#475569';
+            });
+            colorsContainer.appendChild(btn);
+          });
+
+          const canvas = modal.querySelector('#sp-canvas') as HTMLCanvasElement;
+          const wrapper = modal.querySelector('#sp-canvas-wrapper') as HTMLElement;
+          const ctx = canvas.getContext('2d')!;
+
+          setTimeout(() => {
+            canvas.width = wrapper.clientWidth || 500;
+            canvas.height = wrapper.clientHeight || 300;
+            const saved = sess.drawings?.[q.id];
+            if (saved) {
+              const img = new Image();
+              img.onload = () => ctx.drawImage(img, 0, 0);
+              img.src = saved;
+            }
+          }, 50);
+
+          const resizeObserver = new ResizeObserver(() => {
+            if (wrapper.clientWidth > 0 && wrapper.clientHeight > 0) {
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = canvas.width;
+              tempCanvas.height = canvas.height;
+              const tempCtx = tempCanvas.getContext('2d');
+              if (tempCtx && canvas.width > 0 && canvas.height > 0) {
+                tempCtx.drawImage(canvas, 0, 0);
+              }
+
+              canvas.width = wrapper.clientWidth;
+              canvas.height = wrapper.clientHeight;
+              if (tempCanvas.width > 0 && tempCanvas.height > 0) {
+                ctx.drawImage(tempCanvas, 0, 0);
+              }
+            }
+          });
+          resizeObserver.observe(wrapper);
+
+          let drawing = false;
+          let lx = 0, ly = 0;
+
+          const getPos = (e: MouseEvent) => {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+          };
+
+          canvas.addEventListener('mousedown', e => {
+            drawing = true;
+            const p = getPos(e);
+            lx = p.x; ly = p.y;
+          });
+
+          canvas.addEventListener('mousemove', e => {
+            if (!drawing) return;
+            const p = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.lineTo(p.x, p.y);
+            ctx.strokeStyle = currentMode === 'eraser' ? '#ffffff' : currentColor;
+            ctx.lineWidth = currentMode === 'eraser' ? currentSize * 4 : currentSize;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            lx = p.x; ly = p.y;
+          });
+
+          const stopDrawing = () => {
+            if (drawing) {
+              drawing = false;
+              store.saveDrawing(q.id, canvas.toDataURL());
+            }
+          };
+
+          canvas.addEventListener('mouseup', stopDrawing);
+          canvas.addEventListener('mouseleave', stopDrawing);
+
+          const penBtn = modal.querySelector('#sp-mode-pen') as HTMLElement;
+          const eraserBtn = modal.querySelector('#sp-mode-eraser') as HTMLElement;
+
+          penBtn?.addEventListener('click', () => {
+            currentMode = 'pen';
+            penBtn.style.border = '1px solid #2563eb';
+            penBtn.style.background = '#eff6ff';
+            penBtn.style.color = '#2563eb';
+            eraserBtn.style.border = '1px solid #cbd5e1';
+            eraserBtn.style.background = '#ffffff';
+            eraserBtn.style.color = '#475569';
+          });
+          eraserBtn?.addEventListener('click', () => {
+            currentMode = 'eraser';
+            eraserBtn.style.border = '1px solid #2563eb';
+            eraserBtn.style.background = '#eff6ff';
+            eraserBtn.style.color = '#2563eb';
+            penBtn.style.border = '1px solid #cbd5e1';
+            penBtn.style.background = '#ffffff';
+            penBtn.style.color = '#475569';
+          });
+          modal.querySelector('#sp-size')?.addEventListener('input', (e) => {
+            currentSize = parseInt((e.target as HTMLInputElement).value, 10);
+          });
+          modal.querySelector('#sp-clear')?.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            store.saveDrawing(q.id, '');
+          });
+          modal.querySelector('#sp-close')?.addEventListener('click', () => {
+            modal!.style.display = 'none';
+          });
+
+          const sph = modal.querySelector('#sph') as HTMLElement;
+          let ox = 0, oy = 0;
+          const onMouseMove = (e: MouseEvent) => {
+            modal!.style.left = `${e.clientX - ox}px`;
+            modal!.style.top = `${e.clientY - oy}px`;
+          };
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+          sph.addEventListener('mousedown', (e: MouseEvent) => {
+            ox = e.clientX - modal!.offsetLeft;
+            oy = e.clientY - modal!.offsetTop;
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
           });
         } else {
           modal.style.display = modal.style.display === 'none' ? 'flex' : 'none';
@@ -1273,7 +1485,8 @@ export function renderTestSession(): HTMLElement {
       } else if (isChecked) {
         const isLast = idx === questions.length - 1;
         if (isLast) {
-          store.endSession();
+          stopTimer();
+          showSessionSummaryModal();
         } else {
           idx++;
           currentQuestionIndex = idx;
@@ -1287,4 +1500,117 @@ export function renderTestSession(): HTMLElement {
 
   draw();
   return root;
+}
+
+export function showSessionSummaryModal() {
+  const sess = store.getState().session;
+  if (!sess) {
+    store.setView('dashboard');
+    return;
+  }
+
+  const qIds = sess.filteredQuestionIds;
+  const total = qIds.length;
+  const questions = store.getState().questionBank.filter(q => qIds.includes(q.id));
+  const answeredCount = Object.keys(sess.answers).length;
+  
+  let correctCount = 0;
+  questions.forEach(q => {
+    const userAns = sess.answers[q.id];
+    if (userAns && areAnswersEquivalent(q.correctAnswer, userAns)) {
+      correctCount++;
+    }
+  });
+
+  const accuracyPct = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+  
+  let totalTime = 0;
+  if (sess.questionTimes) {
+    totalTime = Object.values(sess.questionTimes).reduce((a, b) => a + b, 0);
+  }
+  const avgSec = answeredCount > 0 ? Math.round(totalTime / answeredCount) : 0;
+
+  const domainStats: Record<string, { total: number; correct: number }> = {};
+  questions.forEach(q => {
+    if (!domainStats[q.domain]) domainStats[q.domain] = { total: 0, correct: 0 };
+    domainStats[q.domain].total++;
+    const userAns = sess.answers[q.id];
+    if (userAns && areAnswersEquivalent(q.correctAnswer, userAns)) {
+      domainStats[q.domain].correct++;
+    }
+  });
+
+  const modal = document.createElement('div');
+  modal.id = 'session-summary-modal';
+  Object.assign(modal.style, {
+    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+    background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(6px)',
+    zIndex: '1000000', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '1.5rem'
+  });
+
+  modal.innerHTML = `
+    <div style="background:var(--c-surface); border:1px solid var(--c-border-md); border-radius:18px; max-width:600px; width:100%; max-height:90vh; overflow-y:auto; padding:2rem; box-shadow:var(--shadow-xl); font-family:var(--font); color:var(--c-text);">
+      <div style="text-align:center; margin-bottom:1.5rem;">
+        <h2 style="font-size:1.5rem; font-weight:800; color:var(--c-text); margin-top:0.5rem;">Session Summary</h2>
+        <p style="font-size:0.875rem; color:var(--c-text-2); margin-top:0.25rem;">Great work! Here is how you performed in this practice session.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1rem; margin-bottom:1.5rem;">
+        <div style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="font-size:0.75rem; color:var(--c-text-2); font-weight:600;">Accuracy</div>
+          <div style="font-size:1.5rem; font-weight:800; color:var(--c-blue); margin-top:0.25rem;">${accuracyPct}%</div>
+          <div style="font-size:0.7rem; color:var(--c-text-3);">${correctCount} of ${answeredCount} correct</div>
+        </div>
+        <div style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="font-size:0.75rem; color:var(--c-text-2); font-weight:600;">Avg Time / Question</div>
+          <div style="font-size:1.5rem; font-weight:800; color:var(--c-green); margin-top:0.25rem;">${avgSec}s</div>
+          <div style="font-size:0.7rem; color:var(--c-text-3);">Pace estimate</div>
+        </div>
+        <div style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="font-size:0.75rem; color:var(--c-text-2); font-weight:600;">Questions Completed</div>
+          <div style="font-size:1.5rem; font-weight:800; color:var(--c-purple); margin-top:0.25rem;">${answeredCount}/${total}</div>
+          <div style="font-size:0.7rem; color:var(--c-text-3);">${total - answeredCount} skipped</div>
+        </div>
+      </div>
+
+      <h3 style="font-size:1rem; font-weight:700; color:var(--c-text); margin-bottom:0.75rem;">Topic Breakdown</h3>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1.5rem;">
+        ${Object.entries(domainStats).map(([dom, st]) => {
+          const pct = Math.round((st.correct / st.total) * 100);
+          return `
+            <div style="background:var(--c-card); border:1px solid var(--c-border); border-radius:10px; padding:0.75rem 1rem; display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <div style="font-size:0.85rem; font-weight:600; color:var(--c-text);">${dom}</div>
+                <div style="font-size:0.75rem; color:var(--c-text-2);">${st.correct} / ${st.total} correct</div>
+              </div>
+              <div style="font-size:1rem; font-weight:800; color:${pct >= 70 ? 'var(--c-green)' : (pct >= 40 ? 'var(--c-amber)' : 'var(--c-red)')};">${pct}%</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+        <button class="btn btn-ghost" id="sum-review-btn" style="border:1px solid var(--c-border-md);">Review Questions</button>
+        <button class="btn btn-primary" id="sum-finish-btn" style="background:var(--c-blue); color:#fff;">Return to Dashboard</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#sum-review-btn')?.addEventListener('click', () => {
+    document.getElementById('desmos-modal')?.remove();
+    document.getElementById('scratchpad-modal')?.remove();
+    document.getElementById('reference-modal')?.remove();
+    modal.remove();
+    store.setView('review');
+  });
+
+  modal.querySelector('#sum-finish-btn')?.addEventListener('click', () => {
+    document.getElementById('desmos-modal')?.remove();
+    document.getElementById('scratchpad-modal')?.remove();
+    document.getElementById('reference-modal')?.remove();
+    modal.remove();
+    store.endSession();
+  });
 }

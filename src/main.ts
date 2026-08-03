@@ -24,6 +24,7 @@ function render() {
   } else {
     // Clean up modals and docked layouts if not in testing room
     document.getElementById('desmos-modal')?.remove();
+    document.getElementById('scratchpad-modal')?.remove();
     document.getElementById('reference-modal')?.remove();
     document.body.classList.remove('calc-docked');
 
@@ -71,6 +72,11 @@ function render() {
           </button>
         </div>
       </div>
+      <div style="padding: 1rem; border-top: 1px solid var(--c-border); margin-top: auto;">
+        <button class="btn" id="side-theme-toggle" style="width:100%; background:var(--c-elevated); border:1px solid var(--c-border); color:var(--c-text); font-size:0.8rem; padding:0.5rem; border-radius:8px; cursor:pointer;">
+          ${state.theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+        </button>
+      </div>
     `;
 
     const mainContent = document.createElement('div');
@@ -106,6 +112,10 @@ function render() {
     sidebar.querySelector('#side-review')?.addEventListener('click', () => store.setView('review'));
     sidebar.querySelector('#side-saved')?.addEventListener('click', () => store.setView('saved'));
     sidebar.querySelector('#side-analytics')?.addEventListener('click', () => store.setView('analytics'));
+    sidebar.querySelector('#side-theme-toggle')?.addEventListener('click', () => {
+      const cur = store.getState().theme || 'dark';
+      store.setTheme(cur === 'dark' ? 'light' : 'dark');
+    });
   }
 
   // Trigger MathJax typeset to compile LaTeX math formulas

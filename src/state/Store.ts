@@ -89,6 +89,10 @@ function loadState(): AppState {
       if (!parsed.difficultyOverrides) {
         parsed.difficultyOverrides = {};
       }
+      const initialTheme = localStorage.getItem('prepology_theme') || parsed.theme || 'dark';
+      document.documentElement.setAttribute('data-theme', initialTheme);
+      const initialHideDetails = localStorage.getItem('prepology_hide_details') === 'true' || parsed.hideQuestionDetails || false;
+
       // SELF-REPAIR: If old large questionBank exists in localStorage, prune it to free up quota
       if (parsed.questionBank) {
         delete parsed.questionBank;
@@ -101,6 +105,8 @@ function loadState(): AppState {
       return { 
         ...defaultState, 
         ...parsed, 
+        theme: initialTheme,
+        hideQuestionDetails: initialHideDetails,
         stats: { ...defaultState.stats, ...parsed.stats },
         difficultyOverrides: parsed.difficultyOverrides || {},
         questionBank: [] // Reset questionBank so it is loaded fresh from JSON
@@ -111,7 +117,9 @@ function loadState(): AppState {
       localStorage.removeItem('preplogy_state');
     }
   }
-  return defaultState;
+  const defaultTheme = (localStorage.getItem('prepology_theme') as any) || 'dark';
+  document.documentElement.setAttribute('data-theme', defaultTheme);
+  return { ...defaultState, theme: defaultTheme, hideQuestionDetails: localStorage.getItem('prepology_hide_details') === 'true' };
 }
 
 function saveState(state: AppState) {
@@ -171,7 +179,57 @@ class Store {
     this.notify();
   }
 
-  public startSession(section: TestSession['currentSection'], difficulty?: number, domain?: string, skill?: string, isOfficial?: boolean, randomize?: boolean, filterMode?: 'missed' | undefined) {
+  public setTheme(theme: 'dark' | 'light') {
+    this.state.theme = theme;
+    localStorage.setItem('prepology_theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    this.notify();
+  }
+
+  public toggleHideQuestionDetails() {
+    this.state.hideQuestionDetails = !this.state.hideQuestionDetails;
+    localStorage.setItem('prepology_hide_details', String(this.state.hideQuestionDetails));
+    this.notify();
+  }
+
+  public saveAnnotation(questionId: string, annotation: { id: string; text: string; style: string; note?: string }) {
+    if (!this.state.session) return;
+    if (!this.state.session.annotations) this.state.session.annotations = {};
+    if (!this.state.session.annotations[questionId]) this.state.session.annotations[questionId] = [];
+    const list = this.state.session.annotations[questionId];
+    const existingIdx = list.findIndex(a => a.id === annotation.id);
+    if (existingIdx >= 0) {
+      list[existingIdx] = annotation;
+    } else {
+      list.push(annotation);
+    }
+    this.notify();
+  }
+
+  public removeAnnotation(questionId: string, annotationId: string) {
+    if (!this.state.session || !this.state.session.annotations?.[questionId]) return;
+    this.state.session.annotations[questionId] = this.state.session.annotations[questionId].filter(a => a.id !== annotationId);
+    this.notify();
+  }
+
+  public saveDrawing(questionId: string, dataUrl: string) {
+    if (!this.state.session) return;
+    if (!this.state.session.drawings) this.state.session.drawings = {};
+    this.state.session.drawings[questionId] = dataUrl;
+    saveState(this.state);
+  }
+
+  public startSession(
+    section: TestSession['currentSection'], 
+    difficulty?: number, 
+    domain?: string | string[], 
+    skill?: string, 
+    isOfficial?: boolean, 
+    randomize?: boolean, 
+    filterMode?: 'missed' | undefined,
+    questionCount?: number,
+    isStructuredSession?: boolean
+  ) {
     let filtered = this.state.questionBank.filter(q => q.section === section);
     if (isOfficial !== undefined) {
       filtered = filtered.filter(q => !!q.official === isOfficial);
@@ -179,8 +237,12 @@ class Store {
     if (difficulty && difficulty !== 0) {
       filtered = filtered.filter(q => q.difficulty === difficulty);
     }
-    if (domain && domain !== 'All') {
-      filtered = filtered.filter(q => q.domain === domain);
+    if (domain) {
+      if (Array.isArray(domain) && domain.length > 0) {
+        filtered = filtered.filter(q => domain.includes(q.domain));
+      } else if (typeof domain === 'string' && domain !== 'All') {
+        filtered = filtered.filter(q => q.domain === domain);
+      }
     }
     if (skill && skill !== 'All') {
       filtered = filtered.filter(q => q.skill === skill);
@@ -197,6 +259,10 @@ class Store {
         [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
       }
     }
+
+    if (questionCount && questionCount > 0 && questionCount < filtered.length) {
+      filtered = filtered.slice(0, questionCount);
+    }
     
     this.state.session = {
       id: crypto.randomUUID(),
@@ -210,7 +276,17 @@ class Store {
       flagged: new Set(),
       eliminatedOptions: {},
       questionTimes: {},
-      completed: false
+      completed: false,
+      annotations: {},
+      drawings: {},
+      isStructuredSession: !!isStructuredSession,
+      sessionConfig: {
+        section,
+        difficulty,
+        domain,
+        skill,
+        questionCount: filtered.length
+      }
     };
     this.state.currentView = 'test';
     window.history.pushState({}, '', `/test`);
