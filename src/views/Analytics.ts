@@ -24,17 +24,17 @@ export function renderAnalytics(): HTMLElement {
     return `${m}m`;
   };
 
-  // 2. Activity Trend: group by week
+  // 2. Activity Trend: group by day
   // Feb 1, 2026 to current date
   const startMs = new Date('2026-02-01T00:00:00').getTime();
   const endMs = Math.max(new Date('2026-07-11T23:59:59').getTime(), Date.now());
-  const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-  const weekCount = Math.ceil((endMs - startMs) / oneWeekMs);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const dayCount = Math.ceil((endMs - startMs) / oneDayMs);
 
-  // Initialize weekly bins
-  const weeklyData = Array.from({ length: weekCount }, (_, i) => {
-    const weekStart = new Date(startMs + i * oneWeekMs);
-    const label = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Initialize daily bins
+  const dailyData = Array.from({ length: dayCount }, (_, i) => {
+    const dayStart = new Date(startMs + i * oneDayMs);
+    const label = dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return {
       label,
       correct: { 1: 0, 2: 0, 3: 0 },
@@ -45,9 +45,9 @@ export function renderAnalytics(): HTMLElement {
 
   history.forEach(h => {
     if (h.timestamp >= startMs && h.timestamp <= endMs) {
-      const weekIdx = Math.floor((h.timestamp - startMs) / oneWeekMs);
-      if (weekIdx >= 0 && weekIdx < weekCount) {
-        const bin = weeklyData[weekIdx];
+      const dayIdx = Math.floor((h.timestamp - startMs) / oneDayMs);
+      if (dayIdx >= 0 && dayIdx < dayCount) {
+        const bin = dailyData[dayIdx];
         const diff = h.difficulty as 1 | 2 | 3;
         if (h.correct) {
           bin.correct[diff]++;
@@ -59,8 +59,8 @@ export function renderAnalytics(): HTMLElement {
     }
   });
 
-  // Calculate max weekly total to scale heights
-  const maxWeeklyTotal = Math.max(...weeklyData.map(w => w.total), 1);
+  // Calculate max daily total to scale heights
+  const maxDailyTotal = Math.max(...dailyData.map(w => w.total), 1);
   const chartHeightPx = 180;
 
   // 3. Donut chart A: Section Time (Reading & Writing vs Math)
@@ -284,7 +284,7 @@ export function renderAnalytics(): HTMLElement {
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
         <div>
           <h2 style="font-size:1.1rem; font-weight:700; color:var(--c-text);">Activity Trend</h2>
-          <p style="font-size:0.75rem; color:var(--c-text-2); margin-top:0.25rem;">Weekly practice breakdown showing correct vs. incorrect question attempts.</p>
+          <p style="font-size:0.75rem; color:var(--c-text-2); margin-top:0.25rem;">Daily practice breakdown showing correct vs. incorrect question attempts.</p>
         </div>
 
         <!-- Legend Badges -->
@@ -298,16 +298,17 @@ export function renderAnalytics(): HTMLElement {
         </div>
       </div>
 
-      <!-- Weekly Columns Chart Container -->
+      <!-- Daily Columns Chart Container -->
       <div style="height:${chartHeightPx + 40}px; display:flex; align-items:flex-end; gap:8px; border-bottom:1px solid var(--c-border); padding-bottom:4px; margin-top:1.5rem; overflow-x:auto;">
-        ${weeklyData.map((bin, i) => {
+        ${dailyData.map((bin, i) => {
           const correctSum = bin.correct[1] + bin.correct[2] + bin.correct[3];
           const wrongSum = bin.wrong[1] + bin.wrong[2] + bin.wrong[3];
           const total = bin.total;
 
           // Scaled height
-          const pctHeight = (total / maxWeeklyTotal) * chartHeightPx;
-          const showLabel = i % 3 === 0 || i === weeklyData.length - 1;
+          const pctHeight = (total / maxDailyTotal) * chartHeightPx;
+          // Show label every 7 days (e.g. weekly) to avoid clutter, or last day
+          const showLabel = i % 7 === 0 || i === dailyData.length - 1;
 
           // Simple 2-color breakdown (Correct vs Wrong)
           const correctPct = total > 0 ? (correctSum / total) * 100 : 0;
@@ -315,7 +316,7 @@ export function renderAnalytics(): HTMLElement {
 
           return `
             <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:24px;">
-              <div class="weekly-bar-stacked" style="height:${Math.max(4, pctHeight)}px; width:16px; border-radius:4px; overflow:hidden; display:flex; flex-direction:column-reverse; background:var(--c-elevated); cursor:pointer;" title="Week of ${bin.label}: ${total} attempts (${correctSum} correct, ${wrongSum} wrong)">
+              <div class="weekly-bar-stacked" style="height:${Math.max(4, pctHeight)}px; width:16px; border-radius:4px; overflow:hidden; display:flex; flex-direction:column-reverse; background:var(--c-elevated); cursor:pointer;" title="Date: ${bin.label} | ${total} attempts (${correctSum} correct, ${wrongSum} wrong)">
                 <div style="height:${wrongPct}%; background:var(--c-red); width:100%;"></div>
                 <div style="height:${correctPct}%; background:var(--c-green); width:100%;"></div>
               </div>
