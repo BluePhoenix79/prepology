@@ -190,9 +190,12 @@ export function renderDashboard(): HTMLElement {
       <!-- Reported Issues section -->
       ${stats.reportedIssues && stats.reportedIssues.length > 0 ? `
         <div class="glass" style="margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-card);">
-          <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--c-text); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-            Reported Issues (${stats.reportedIssues.length})
-          </h2>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--c-text); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+              Reported Issues (${stats.reportedIssues.length})
+            </h2>
+            <button class="btn btn-ghost" id="copy-all-issues-btn" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; border: 1px solid var(--c-border-md);">Copy All Prompts</button>
+          </div>
           <p style="font-size: 0.75rem; color: var(--c-text-2); margin-bottom: 1rem;">Here are the issues you've flagged. You can copy the details to prompt me to fix them.</p>
           <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
             ${stats.reportedIssues.map((issue) => {
@@ -433,6 +436,18 @@ export function renderDashboard(): HTMLElement {
             (e.currentTarget as HTMLElement).textContent = originalText;
           }, 1500);
         });
+      });
+    });
+
+    root.querySelector('#copy-all-issues-btn')?.addEventListener('click', (e) => {
+      const stats = store.getState().stats;
+      if (!stats.reportedIssues || stats.reportedIssues.length === 0) return;
+      const combined = stats.reportedIssues.map(issue => `For question ID ${issue.questionId}, I reported the following issue: ${issue.description}. Please fix this question.`).join('\n\n');
+      navigator.clipboard.writeText(combined).then(() => {
+        const btn = e.currentTarget as HTMLElement;
+        const originalText = btn.textContent || 'Copy All Prompts';
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = originalText; }, 1500);
       });
     });
   }

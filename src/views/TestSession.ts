@@ -363,6 +363,8 @@ export function renderTestSession(): HTMLElement {
     currentQuestionIndex = 0;
     isDrawerOpen = false;
     isElimMode = false;
+    isTimerPaused = false;
+    isTimerHidden = false;
   }
 
   const qIds: string[] = (session.filteredQuestionIds?.length)
@@ -391,7 +393,6 @@ export function renderTestSession(): HTMLElement {
   let highlightMode = false;
 
   function startTimer() {
-    lastTimerTick = Date.now();
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
       const state = store.getState();
