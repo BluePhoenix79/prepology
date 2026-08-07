@@ -61,6 +61,22 @@ export function renderDashboard(): HTMLElement {
         <button class="op-source-tab ${activeSource === 'official' ? 'active' : ''}" id="src-official">Official CB Bank</button>
       </div>
 
+      ${(() => {
+        const newQs = store.getState().questionBank.filter(q => q.isNew);
+        if (newQs.length > 0) {
+          return `
+            <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)); border: 1px solid var(--c-blue); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.15);">
+              <div>
+                <h3 style="margin: 0 0 0.25rem 0; color: var(--c-blue); font-size: 1.1rem; font-weight: 800;">✨ You have ${newQs.length} newly added questions!</h3>
+                <p style="margin: 0; color: var(--c-text-2); font-size: 0.85rem;">Practice them now before they blend into the rest of the question bank.</p>
+              </div>
+              <button class="btn op-btn-primary" id="btn-practice-new" style="background: var(--c-blue); box-shadow: 0 4px 12px rgba(59,130,246,0.3); padding: 0.6rem 1.2rem;">Practice New Questions</button>
+            </div>
+          `;
+        }
+        return '';
+      })()}
+
       <div class="op-section-tabs">
         <button class="op-tab ${activeSection === 'Reading and Writing' ? 'active' : ''}" id="tab-rw">Reading &amp; Writing</button>
         <button class="op-tab ${activeSection === 'Math' ? 'active' : ''}" id="tab-math">Mathematics</button>
@@ -194,7 +210,10 @@ export function renderDashboard(): HTMLElement {
             <h2 style="font-size: 1.1rem; font-weight: 700; color: var(--c-text); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
               Reported Issues (${stats.reportedIssues.length})
             </h2>
-            <button class="btn btn-ghost" id="copy-all-issues-btn" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; border: 1px solid var(--c-border-md);">Copy All Prompts</button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-ghost" id="copy-all-issues-btn" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; border: 1px solid var(--c-border-md);">Copy All Prompts</button>
+              <button class="btn btn-ghost" id="clear-all-issues-btn" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; border: 1px solid var(--c-red); color: var(--c-red);">Delete All Prompts</button>
+            </div>
           </div>
           <p style="font-size: 0.75rem; color: var(--c-text-2); margin-bottom: 1rem;">Here are the issues you've flagged. You can copy the details to prompt me to fix them.</p>
           <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
@@ -449,6 +468,18 @@ export function renderDashboard(): HTMLElement {
         btn.textContent = 'Copied!';
         setTimeout(() => { btn.textContent = originalText; }, 1500);
       });
+    });
+
+    root.querySelector('#clear-all-issues-btn')?.addEventListener('click', () => {
+      if (confirm('Are you sure you want to delete all prompts?')) {
+        store.clearReportedIssues();
+        draw();
+      }
+    });
+
+    root.querySelector('#btn-practice-new')?.addEventListener('click', () => {
+      // Start a session with new questions (filterMode = 'new')
+      store.startSession(activeSection, activeDifficulty, undefined, undefined, undefined, true, 'new');
     });
   }
 

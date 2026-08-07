@@ -226,7 +226,7 @@ class Store {
     skill?: string, 
     isOfficial?: boolean, 
     randomize?: boolean, 
-    filterMode?: 'missed' | undefined,
+    filterMode?: 'missed' | 'new' | undefined,
     questionCount?: number,
     isStructuredSession?: boolean
   ) {
@@ -247,10 +247,12 @@ class Store {
     if (skill && skill !== 'All') {
       filtered = filtered.filter(q => q.skill === skill);
     }
-    // Missed-only mode: only questions answered incorrectly
+    // Filter mode
     if (filterMode === 'missed') {
       const solvedMap = this.state.stats.solved || {};
       filtered = filtered.filter(q => solvedMap[q.id] && !solvedMap[q.id].correct);
+    } else if (filterMode === 'new') {
+      filtered = filtered.filter(q => q.isNew);
     }
     
     if (randomize) {
@@ -258,6 +260,12 @@ class Store {
         const j = Math.floor(Math.random() * (i + 1));
         [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
       }
+      const solvedMap = this.state.stats.solved || {};
+      filtered.sort((a, b) => {
+        const aSolved = solvedMap[a.id] ? 1 : 0;
+        const bSolved = solvedMap[b.id] ? 1 : 0;
+        return aSolved - bSolved;
+      });
     }
 
     if (questionCount && questionCount > 0 && questionCount < filtered.length) {
@@ -465,6 +473,26 @@ class Store {
                 this.state.stats.mistakes.push(q.id);
               }
             }
+
+            if (!this.state.stats.solveHistory) {
+              this.state.stats.solveHistory = [];
+            }
+            const existingIdx = this.state.stats.solveHistory.findIndex(h => h.id === q.id);
+            const historyEntry = {
+              id: q.id,
+              timestamp: Date.now(),
+              correct: isCorrect,
+              timeSpent: this.state.session.questionTimes?.[q.id] || 45,
+              difficulty: q.difficulty,
+              section: q.section,
+              domain: q.domain,
+              skill: q.skill
+            };
+            if (existingIdx !== -1) {
+              this.state.stats.solveHistory[existingIdx] = historyEntry;
+            } else {
+              this.state.stats.solveHistory.push(historyEntry);
+            }
           }
         }
       }
@@ -527,6 +555,11 @@ class Store {
       timestamp: Date.now(),
       description
     });
+    this.notify();
+  }
+
+  public clearReportedIssues() {
+    this.state.stats.reportedIssues = [];
     this.notify();
   }
 

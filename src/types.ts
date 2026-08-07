@@ -19,6 +19,7 @@ export interface Question {
   rationale: string;
   tags: string[];
   official?: boolean;
+  isNew?: boolean;
 }
 
 export interface Annotation {

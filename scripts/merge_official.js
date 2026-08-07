@@ -316,6 +316,7 @@ const merged = [...nonOfficial, ...existingOfficials];
 // Also append any genuinely new questions that didn't match anything
 for (const q of addedQuestions) {
   if (!existingOfficials.some(eq => eq.id === q.id)) {
+    q.isNew = true;
     merged.push(q);
   }
 }

@@ -404,7 +404,7 @@ export function renderTestSession(): HTMLElement {
       const q = questions[idx];
       if (!q) return;
 
-      if (isTimerPaused) {
+      if (isTimerPaused || (sess.checked && sess.checked.has(q.id))) {
         lastTimerTick = Date.now();
         return;
       }
@@ -1387,12 +1387,25 @@ export function renderTestSession(): HTMLElement {
       const grid = drawer.querySelector('#drawer-grid')!;
       questions.forEach((qItem, qIdx) => {
         const isCurrent    = qIdx === idx;
-        const isQAnswered  = !!sess.answers[qItem.id];
         const isQFlagged   = sess.flagged.has(qItem.id);
         const isQChecked   = sess.checked.has(qItem.id);
         const solvedInfo   = store.getState().stats.solved?.[qItem.id];
-        const isQCorrect   = isQChecked && solvedInfo?.correct;
-        const isQIncorrect = isQChecked && solvedInfo && !solvedInfo.correct;
+
+        let isQCorrect = false;
+        let isQIncorrect = false;
+        let isQAnswered = false;
+
+        if (isQChecked) {
+          isQCorrect = !!solvedInfo?.correct;
+          isQIncorrect = !!(solvedInfo && !solvedInfo.correct);
+          isQAnswered = true;
+        } else if (sess.answers[qItem.id]) {
+          isQAnswered = true;
+        } else if (solvedInfo) {
+          isQCorrect = !!solvedInfo.correct;
+          isQIncorrect = !solvedInfo.correct;
+          isQAnswered = true;
+        }
 
         const cell = document.createElement('div');
         cell.className = 'bb-drawer-cell';

@@ -24,12 +24,11 @@ export function renderAnalytics(): HTMLElement {
     return `${m}m`;
   };
 
-  // 2. Activity Trend: group by day
-  // Feb 1, 2026 to current date
-  const startMs = new Date('2026-02-01T00:00:00').getTime();
-  const endMs = Math.max(new Date('2026-07-11T23:59:59').getTime(), Date.now());
+  // 2. Activity Trend: group by day (Last 30 days)
+  const endMs = Date.now();
   const oneDayMs = 24 * 60 * 60 * 1000;
-  const dayCount = Math.ceil((endMs - startMs) / oneDayMs);
+  const startMs = endMs - (30 * oneDayMs);
+  const dayCount = 30;
 
   // Initialize daily bins
   const dailyData = Array.from({ length: dayCount }, (_, i) => {
@@ -317,8 +316,8 @@ export function renderAnalytics(): HTMLElement {
           return `
             <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:24px;">
               <div class="weekly-bar-stacked" style="height:${Math.max(4, pctHeight)}px; width:16px; border-radius:4px; overflow:hidden; display:flex; flex-direction:column-reverse; background:var(--c-elevated); cursor:pointer;" title="Date: ${bin.label} | ${total} attempts (${correctSum} correct, ${wrongSum} wrong)">
-                <div style="height:${wrongPct}%; background:var(--c-red); width:100%;"></div>
                 <div style="height:${correctPct}%; background:var(--c-green); width:100%;"></div>
+                <div style="height:${wrongPct}%; background:var(--c-red); width:100%;"></div>
               </div>
               <div style="font-size:0.6rem; color:var(--c-text-3); margin-top:8px; height:12px; white-space:nowrap;">
                 ${showLabel ? bin.label : ''}
