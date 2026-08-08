@@ -28,7 +28,10 @@ export function renderReview(): HTMLElement {
             <button class="btn" id="practice-btn" style="font-size:0.875rem;">Practice Weak Areas</button>
             <button class="btn" id="practice-missed-btn" style="font-size:0.875rem; background: var(--c-red, #f43f5e); color:#fff; border:none; cursor:pointer;">Practice Missed Questions</button>
           ` : ''}
-          <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">← Dashboard</button>
+          <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.25rem;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Dashboard
+          </button>
         </div>
       </div>
 
@@ -109,7 +112,10 @@ export function renderReview(): HTMLElement {
         <div class="rationale-block" style="margin-top: 1rem;">
           <button class="btn btn-ghost show-explanation-btn" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid var(--c-border); color: var(--c-blue); background: transparent; cursor: pointer; font-family: var(--font);">Show Explanation</button>
           <div class="explanation-content" style="display: none; margin-top: 1rem;">
-            <div class="rationale-answer" style="margin-bottom: 0.5rem; font-weight: 700; color: #10b981;">✓ Correct Answer: ${q.correctAnswer}</div>
+            <div class="rationale-answer" style="margin-bottom: 0.5rem; font-weight: 700; color: #10b981; display:flex; align-items:center;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.25rem;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Correct Answer: ${q.correctAnswer}
+            </div>
             <div class="rationale-text">${q.rationale}</div>
           </div>
         </div>

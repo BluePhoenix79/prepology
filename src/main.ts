@@ -1,6 +1,6 @@
 import './styles/main.css';
 import { store } from './state/Store';
-import questionsData from './data/questions.json';
+import { getCachedQuestions, setCachedQuestions } from './utils/dbCache';
 import { renderDashboard } from './views/Dashboard';
 import { renderTestSession } from './views/TestSession';
 import { renderReview } from './views/Review';
@@ -8,10 +8,36 @@ import { renderVocab } from './views/Vocab';
 import { renderSaved } from './views/Saved';
 import { renderAnalytics } from './views/Analytics';
 
-// Initialize question bank
+// Ultra-fast async question bank initialization with IndexedDB caching
+async function initQuestionBank() {
+  // 1. Instant load from IndexedDB cache (< 30ms)
+  const cached = await getCachedQuestions();
+  if (cached && cached.length > 0) {
+    store.setQuestionBank(cached as any);
+  }
 
+  // 2. Background sync / First-load fetch
+  try {
+    const res = await fetch('/questions.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        store.setQuestionBank(data as any);
+        // Save to IndexedDB cache asynchronously for instant future boots
+        setCachedQuestions(data as any);
+      }
+    }
+  } catch (e) {
+    console.warn('Network fetch for questions.json failed:', e);
+    // Fallback if no cache and fetch failed
+    if (!cached || cached.length === 0) {
+      const fallbackModule = await import('./data/questions.json');
+      store.setQuestionBank((fallbackModule.default || fallbackModule) as any);
+    }
+  }
+}
 
-store.setQuestionBank(questionsData as any);
+initQuestionBank();
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 

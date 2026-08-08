@@ -137,7 +137,10 @@ export function renderVocab(): HTMLElement {
             <option value="saved" ${filterMode === 'saved' ? 'selected' : ''}>Bookmarked (${bookmarks.length})</option>
             <option value="learned" ${filterMode === 'learned' ? 'selected' : ''}>Learned Words (${learned.length})</option>
           </select>
-          <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">← Dashboard</button>
+          <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.25rem;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Dashboard
+          </button>
         </div>
       </div>
 
@@ -165,7 +168,7 @@ export function renderVocab(): HTMLElement {
                 <p style="font-size:0.875rem;font-style:italic;line-height:1.55;color:var(--c-text-2);border-top:1px dashed var(--c-border);padding-top:0.75rem;margin-top:0.5rem;">"${w.ex}"</p>
                 <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center;" id="learned-action">
                   <button class="btn btn-ghost mark-learned-btn" style="font-size: 0.75rem; padding: 0.3rem 0.65rem; border-radius: 6px; border: 1px solid var(--c-border); color: ${isLearned ? 'var(--c-amber)' : 'var(--c-green)'}; background: transparent; cursor: pointer; font-family: var(--font);">
-                    ${isLearned ? '↩ Move to Study Deck' : '✓ Mark as Learned'}
+                    ${isLearned ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:0.25rem;"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> Move to Study Deck' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.25rem;"><polyline points="20 6 9 17 4 12"></polyline></svg> Mark as Learned'}
                   </button>
                 </div>
               </div>
@@ -173,9 +176,15 @@ export function renderVocab(): HTMLElement {
           </div>
 
           <div style="display:flex;gap:0.75rem;align-items:center;">
-            <button class="btn-ghost btn" id="prev-btn" ${idx === 0 ? 'disabled' : ''} style="font-size:0.875rem;">← Prev</button>
+            <button class="btn-ghost btn" id="prev-btn" ${idx === 0 ? 'disabled' : ''} style="font-size:0.875rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.2rem;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              Prev
+            </button>
             <button class="btn-ghost btn" id="flip-btn" style="font-size:0.875rem;">Flip (Space)</button>
-            <button class="btn" id="next-btn" ${idx === filteredList.length - 1 ? 'disabled' : ''} style="font-size:0.875rem;">Next →</button>
+            <button class="btn" id="next-btn" ${idx === filteredList.length - 1 ? 'disabled' : ''} style="font-size:0.875rem;">
+              Next
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:0.2rem;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
           </div>
 
           <div class="vocab-dot-nav">

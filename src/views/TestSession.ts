@@ -479,7 +479,7 @@ export function renderTestSession(): HTMLElement {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle;margin-top:-1px;"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.5 7.5"/></svg>&nbsp;Scratchpad
           </button>
         ` : ''}
-        ${(q.id.includes('-DC') || (q as any)._raw !== undefined) ? `
+        ${q.id.includes('-DC') ? `
           <div class="bb-difficulty-edit-container" style="position: relative;">
             <button class="bb-hdr-btn" id="set-diff-btn" title="Set Difficulty" style="color:var(--c-blue, #1a56db); border-color:#3b82f6;">
               Set Difficulty: ${diffLabel} &#9662;
@@ -856,7 +856,7 @@ export function renderTestSession(): HTMLElement {
 
     /* ───── EVENTS ───── */
     // Difficulty edit controls
-    if (q.id.includes('-DC') || (q as any)._raw !== undefined) {
+    if (q.id.includes('-DC')) {
       const setDiffBtn = nav.querySelector('#set-diff-btn');
       const diffDropdown = nav.querySelector('#diff-dropdown');
       if (setDiffBtn && diffDropdown) {

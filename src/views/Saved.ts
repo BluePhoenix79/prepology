@@ -24,8 +24,11 @@ export function renderSaved(): HTMLElement {
           <p>${sectionSaved.length} bookmarked question${sectionSaved.length !== 1 ? 's' : ''} in ${activeSavedSection === 'Math' ? 'Mathematics' : 'Reading & Writing'}</p>
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;">
-          ${sectionSaved.length > 0 ? `<button class="btn" id="practice-saved-btn" style="font-size:0.875rem;">Practice Bookmarks →</button>` : ''}
-          <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">← Dashboard</button>
+          ${sectionSaved.length > 0 ? `<button class="btn" id="practice-saved-btn" style="font-size:0.875rem;">Practice Bookmarks <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:0.2rem;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></button>` : ''}
+          <button class="btn-ghost btn" id="back-btn" style="font-size:0.875rem;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:0.25rem;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Dashboard
+          </button>
         </div>
       </div>
 
@@ -87,16 +90,25 @@ export function renderSaved(): HTMLElement {
         <div style="font-size:0.9375rem;line-height:1.65;margin-bottom:0.25rem;">${q.questionText}</div>
         ${q.passageText ? `
           <details style="margin:0.625rem 0;">
-            <summary style="cursor:pointer;font-size:0.8125rem;color:var(--c-blue);font-weight:500;user-select:none;">View passage ▸</summary>
+            <summary style="cursor:pointer;font-size:0.8125rem;color:var(--c-blue);font-weight:500;user-select:none;display:flex;align-items:center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.25rem;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              View passage
+            </summary>
             <div style="margin-top:0.75rem;font-family:var(--font-serif);font-size:0.9375rem;line-height:1.85;color:var(--c-text-2);padding:0.75rem 0;">${q.passageText}</div>
           </details>
         ` : ''}
 
         <div style="margin-top: 1rem; border-top: 1px solid var(--c-border); padding-top: 1rem;">
           <details style="margin:0.5rem 0;">
-            <summary style="cursor:pointer;font-size:0.8125rem;color:var(--c-blue);font-weight:500;user-select:none;">Show Answer & Explanation ▸</summary>
-            <div class="rationale-block" style="margin-top: 0.5rem;">
-              <div class="rationale-answer">✓ Correct Answer: ${q.correctAnswer}</div>
+            <summary style="cursor:pointer;font-size:0.8125rem;color:var(--c-blue);font-weight:500;user-select:none;display:flex;align-items:center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.25rem;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              Show Answer & Explanation
+            </summary>
+            <div style="margin-top:0.75rem;font-size:0.875rem;color:var(--c-text-2);background:var(--c-elevated);padding:1rem;border-radius:8px;border:1px solid var(--c-border);line-height:1.6;">
+              <div class="rationale-answer" style="margin-bottom:0.5rem;font-weight:700;color:var(--c-green);display:flex;align-items:center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:0.25rem;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Correct Answer: ${q.correctAnswer}
+              </div>
               <div class="rationale-text">${q.rationale}</div>
             </div>
           </details>

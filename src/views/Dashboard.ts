@@ -44,6 +44,29 @@ export function renderDashboard(): HTMLElement {
     const missedCount = allQs.filter(q => solvedMap[q.id] && !solvedMap[q.id].correct).length;
 
   return `
+      ${(() => {
+        const newQs = store.getState().questionBank.filter(q => q.isNew);
+        if (newQs.length > 0) {
+          const rwNewCount = newQs.filter(q => q.section === 'Reading and Writing').length;
+          const mathNewCount = newQs.filter(q => q.section === 'Math').length;
+          return `
+            <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)); border: 1px solid var(--c-blue); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.15);">
+              <div>
+                <h3 style="margin: 0; color: var(--c-blue); font-size: 1.1rem; font-weight: 800; display:flex; align-items:center; gap:0.4rem;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                  You have ${newQs.length} newly added questions!
+                </h3>
+              </div>
+              <div style="display:flex; gap:0.5rem;">
+                <button class="btn op-btn-primary" id="btn-practice-new-rw" style="background: var(--c-blue); box-shadow: 0 4px 12px rgba(59,130,246,0.3); padding: 0.6rem 1.2rem;">R&W (${rwNewCount})</button>
+                <button class="btn op-btn-primary" id="btn-practice-new-math" style="background: var(--c-blue); box-shadow: 0 4px 12px rgba(59,130,246,0.3); padding: 0.6rem 1.2rem;">Math (${mathNewCount})</button>
+              </div>
+            </div>
+          `;
+        }
+        return '';
+      })()}
+
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
         <div>
           <h1 style="font-size:1.75rem; font-weight:800; color:var(--c-text); margin:0;">Dashboard</h1>
@@ -60,22 +83,6 @@ export function renderDashboard(): HTMLElement {
         <button class="op-source-tab ${activeSource === 'drills' ? 'active' : ''}" id="src-drills">Practice Drills</button>
         <button class="op-source-tab ${activeSource === 'official' ? 'active' : ''}" id="src-official">Official CB Bank</button>
       </div>
-
-      ${(() => {
-        const newQs = store.getState().questionBank.filter(q => q.isNew);
-        if (newQs.length > 0) {
-          return `
-            <div style="margin-bottom: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)); border: 1px solid var(--c-blue); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.15);">
-              <div>
-                <h3 style="margin: 0 0 0.25rem 0; color: var(--c-blue); font-size: 1.1rem; font-weight: 800;">✨ You have ${newQs.length} newly added questions!</h3>
-                <p style="margin: 0; color: var(--c-text-2); font-size: 0.85rem;">Practice them now before they blend into the rest of the question bank.</p>
-              </div>
-              <button class="btn op-btn-primary" id="btn-practice-new" style="background: var(--c-blue); box-shadow: 0 4px 12px rgba(59,130,246,0.3); padding: 0.6rem 1.2rem;">Practice New Questions</button>
-            </div>
-          `;
-        }
-        return '';
-      })()}
 
       <div class="op-section-tabs">
         <button class="op-tab ${activeSection === 'Reading and Writing' ? 'active' : ''}" id="tab-rw">Reading &amp; Writing</button>
@@ -174,7 +181,7 @@ export function renderDashboard(): HTMLElement {
                   return `
                     <div class="op-skill-row ${isPlayable ? '' : 'disabled'}" data-domain="${domainName}" data-skill="${skillName}">
                       <div class="op-col-topic">
-                        <span class="op-play-icon">▶</span>
+                        <span class="op-play-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:0.25rem;"><path d="M5 3l14 9-14 9V3z"></path></svg></span>
                         <span class="op-skill-name">${skillName}${isSkillWeak ? ' <span style="font-size:0.65rem;color:#b91c1c;font-weight:700;">↓</span>' : ''}</span>
                       </div>
                       <div class="op-col-progress">
@@ -268,7 +275,9 @@ export function renderDashboard(): HTMLElement {
             <h2 style="font-size:1.35rem; font-weight:800; color:var(--c-text); margin:0;">Start Test Session</h2>
             <p style="font-size:0.8rem; color:var(--c-text-2); margin:0.2rem 0 0 0;">Customize your targeted SAT practice session.</p>
           </div>
-          <button id="close-modal-x" style="background:var(--c-elevated); border:1px solid var(--c-border); color:var(--c-text-2); width:32px; height:32px; border-radius:50%; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;">&#10005;</button>
+          <button id="close-modal-x" style="background:var(--c-elevated); border:1px solid var(--c-border); color:var(--c-text-2); width:32px; height:32px; border-radius:50%; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:1.25rem;">
@@ -477,9 +486,13 @@ export function renderDashboard(): HTMLElement {
       }
     });
 
-    root.querySelector('#btn-practice-new')?.addEventListener('click', () => {
+    root.querySelector('#btn-practice-new-rw')?.addEventListener('click', () => {
       // Start a session with new questions (filterMode = 'new')
-      store.startSession(activeSection, activeDifficulty, undefined, undefined, undefined, true, 'new');
+      store.startSession('Reading and Writing', activeDifficulty, undefined, undefined, undefined, true, 'new');
+    });
+
+    root.querySelector('#btn-practice-new-math')?.addEventListener('click', () => {
+      store.startSession('Math', activeDifficulty, undefined, undefined, undefined, true, 'new');
     });
   }
 

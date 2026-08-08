@@ -443,7 +443,8 @@ export function renderAnalytics(): HTMLElement {
                     </div>
 
                     <button class="btn btn-ghost btn-sm practice-weak-btn" data-section="${item.section}" data-domain="${item.domain}" data-skill="${item.skill}" style="border:1px solid var(--c-border); background:var(--c-elevated); font-size:0.75rem; font-weight:600; color:var(--c-blue); padding:0.25rem 0.6rem; border-radius:6px; cursor:pointer;">
-                      Practice →
+                      Practice
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:0.2rem;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                     </button>
                   </div>
                 </div>
