@@ -1,4 +1,5 @@
 import './styles/main.css';
+import { registerSW } from 'virtual:pwa-register';
 import { store } from './state/Store';
 import { getCachedQuestions, setCachedQuestions } from './utils/dbCache';
 import { renderDashboard } from './views/Dashboard';
@@ -38,6 +39,10 @@ async function initQuestionBank() {
 }
 
 initQuestionBank();
+
+if ('serviceWorker' in navigator) {
+  registerSW({ immediate: true });
+}
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
