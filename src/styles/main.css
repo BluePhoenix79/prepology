@@ -445,15 +445,155 @@ select:focus, input:focus {
   z-index: 10000 !important;
 }
 
+/* Header laid out like Bluebook's: a stacked section label on the left, a
+   bare timer in the middle, and icon-over-label tools on the right. */
 .bb-nav-left {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
 }
 .bb-nav-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 700;
   color: #1a1a1a;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.bb-nav-directions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #1a1a1a;
+  font-family: var(--font);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.bb-nav-directions:hover { text-decoration: underline; }
+.bb-caret { font-size: 0.7rem; }
+
+.bb-nav-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+.bb-timer {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.bb-timer-controls { display: flex; align-items: center; gap: 0.4rem; }
+.bb-timer-pause {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.bb-timer-pause:hover { background: #f1f5f9; border-color: #94a3b8; }
+.bb-timer-hide {
+  padding: 0;
+  background: none;
+  border: none;
+  color: #1a1a1a;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 400;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.bb-timer-hide:hover { text-decoration: underline; }
+
+.bb-nav-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.35rem;
+}
+.bb-nav-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0.15rem 0.2rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #1a1a1a;
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 400;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.bb-nav-tool:hover { background: #f1f5f9; }
+.bb-nav-tool.active { color: #1d4ed8; }
+.bb-nav-tool.active svg { stroke: #1d4ed8; }
+
+/* "More" overflow menu */
+.bb-more-wrap { position: relative; }
+.bb-more-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 210px;
+  padding: 0.3rem;
+  background: #fff;
+  border: 1px solid #e4e4e4;
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+  z-index: 10002;
+  display: none;
+}
+.bb-more-menu.show { display: block; }
+.bb-more-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #1e293b;
+  font-family: var(--font);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.bb-more-item:hover { background: #f1f5f9; }
+.bb-more-item--danger { color: #b91c1c; }
+.bb-more-item--danger:hover { background: #fef2f2; }
+.bb-more-sep { height: 1px; margin: 0.3rem 0; background: #eef2f6; }
+.bb-more-label {
+  padding: 0.35rem 0.6rem 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
 }
 /* Unified Header Buttons */
 .bb-hdr-btn, .bb-dir-btn, .bb-calc-btn {

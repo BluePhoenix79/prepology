@@ -481,53 +481,62 @@ export function renderTestSession(): HTMLElement {
     const nav = document.createElement('div');
     nav.className = 'bb-nav';
     nav.innerHTML = `
-      <div class="bb-nav-left" style="display:flex; align-items:center; gap:0.5rem;">
-        <span class="bb-nav-title" style="font-weight: 700; color: #1e293b; margin-right: 0.5rem;">${sectionLabel}</span>
-        <button class="bb-hdr-btn" id="dir-btn" title="Read directions">Directions &#9662;</button>
-        <button class="bb-hdr-btn" id="toggle-info-btn" title="Toggle question info visibility">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-top:-1px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>&nbsp;${hideDetails ? 'Show Info' : 'Hide Info'}
+      <div class="bb-nav-left">
+        <span class="bb-nav-title">Section ${q.section === 'Math' ? '2' : '1'}: ${sectionLabel}</span>
+        <button class="bb-nav-directions" id="dir-btn" title="Read directions">
+          Directions <span class="bb-caret">&#9662;</span>
         </button>
-        ${isMath ? `
-          <button class="bb-hdr-btn" id="draw-btn" title="Math Scratchpad Canvas">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle;margin-top:-1px;"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.5 7.5"/></svg>&nbsp;Scratchpad
-          </button>
-        ` : ''}
-        ${q.id.includes('-DC') ? `
-          <div class="bb-difficulty-edit-container" style="position: relative;">
-            <button class="bb-hdr-btn" id="set-diff-btn" title="Set Difficulty" style="color:var(--c-blue, #1a56db); border-color:#3b82f6;">
-              Set Difficulty: ${diffLabel} &#9662;
-            </button>
-            <div id="diff-dropdown" class="bb-diff-dropdown" style="position: absolute; top: 100%; left: 0; margin-top: 4px; background: white; border: 1px solid #e4e4e4; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10001; min-width: 100px;">
-              <button class="diff-opt-btn" data-val="1" style="display: block; width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: none; border: none; font-size: 0.8125rem; cursor: pointer; color: #333; font-family: var(--font);">Easy</button>
-              <button class="diff-opt-btn" data-val="2" style="display: block; width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: none; border: none; font-size: 0.8125rem; cursor: pointer; color: #333; font-family: var(--font); border-top: 1px solid #f3f4f6;">Medium</button>
-              <button class="diff-opt-btn" data-val="3" style="display: block; width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: none; border: none; font-size: 0.8125rem; cursor: pointer; color: #333; font-family: var(--font); border-top: 1px solid #f3f4f6;">Hard</button>
-            </div>
-          </div>
-        ` : ''}
       </div>
-      <div class="bb-nav-center" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 2px; height: 100%;">
-        <div id="q-timer" style="font-size: 1.15rem; font-weight: 700; color: var(--c-text); font-family: monospace; line-height: 1.1;">00:00</div>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <button id="pause-timer-btn" style="width: 22px; height: 22px; border-radius: 50%; border: 1px solid #cbd5e1; background: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="${isTimerPaused ? 'Resume' : 'Pause'}">
-            ${isTimerPaused 
-              ? `<svg width="8" height="8" viewBox="0 0 24 24" fill="#334155" stroke="#334155" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
-              : `<svg width="8" height="8" viewBox="0 0 24 24" fill="#334155" stroke="#334155" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
+
+      <div class="bb-nav-center">
+        <div id="q-timer" class="bb-timer">00:00</div>
+        <div class="bb-timer-controls">
+          <button id="pause-timer-btn" class="bb-timer-pause" title="${isTimerPaused ? 'Resume' : 'Pause'}" aria-label="${isTimerPaused ? 'Resume timer' : 'Pause timer'}">
+            ${isTimerPaused
+              ? `<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
+              : `<svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
             }
           </button>
-          <button id="hide-timer-btn" style="padding: 2px 10px; border-radius: 9999px; border: 1px solid #cbd5e1; background: #ffffff; color: #2563eb; font-size: 0.7rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-            ${isTimerHidden ? 'Show' : 'Hide'}
-          </button>
+          <button id="hide-timer-btn" class="bb-timer-hide">${isTimerHidden ? 'Show' : 'Hide'}</button>
         </div>
       </div>
-      <div class="bb-nav-right" style="display:flex; align-items:center; justify-content:flex-end; gap:0.5rem;">
-        ${isMath ? `
-          <button class="bb-hdr-btn" id="calc-btn">${SVG.calc}&nbsp;Calculator</button>
-          <button class="bb-hdr-btn" id="ref-btn">${SVG.ref}&nbsp;Reference</button>
-        ` : ''}
-        <button class="bb-hdr-btn ${highlightMode ? 'active' : ''}" id="highlight-btn" title="Highlight text (select text to highlight)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:middle;margin-top:-1px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>&nbsp;Highlight
+
+      <div class="bb-nav-right">
+        <button class="bb-nav-tool ${highlightMode ? 'active' : ''}" id="highlight-btn" title="Annotate: select text to highlight">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span>Annotate</span>
         </button>
-        <button class="bb-hdr-btn" id="exit-btn" style="font-weight:700;">${sess.isStructuredSession ? 'End Session' : 'Exit Practice'}</button>
+        <div class="bb-more-wrap">
+          <button class="bb-nav-tool" id="more-btn" aria-haspopup="true" aria-expanded="false" title="More tools">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+            <span>More</span>
+          </button>
+          <div class="bb-more-menu" id="more-menu" role="menu">
+            ${isMath ? `
+              <button class="bb-more-item" id="calc-btn" role="menuitem">${SVG.calc}<span>Calculator</span></button>
+              <button class="bb-more-item" id="ref-btn" role="menuitem">${SVG.ref}<span>Reference sheet</span></button>
+              <button class="bb-more-item" id="draw-btn" role="menuitem">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.5 7.5"/></svg><span>Scratchpad</span>
+              </button>
+            ` : ''}
+            <button class="bb-more-item" id="toggle-info-btn" role="menuitem">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <span>${hideDetails ? 'Show question info' : 'Hide question info'}</span>
+            </button>
+            ${q.id.includes('-DC') ? `
+              <div class="bb-more-sep"></div>
+              <div class="bb-more-label">Set difficulty · now ${diffLabel}</div>
+              <button class="bb-more-item diff-opt-btn" data-val="1" role="menuitem"><span>Easy</span></button>
+              <button class="bb-more-item diff-opt-btn" data-val="2" role="menuitem"><span>Medium</span></button>
+              <button class="bb-more-item diff-opt-btn" data-val="3" role="menuitem"><span>Hard</span></button>
+            ` : ''}
+            <div class="bb-more-sep"></div>
+            <button class="bb-more-item bb-more-item--danger" id="exit-btn" role="menuitem">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span>${sess.isStructuredSession ? 'End session' : 'Exit practice'}</span>
+            </button>
+          </div>
+        </div>
       </div>
     `;
     root.appendChild(nav);
@@ -872,30 +881,36 @@ export function renderTestSession(): HTMLElement {
     }
 
     /* ───── EVENTS ───── */
-    // Difficulty edit controls
+    // "More" overflow menu — holds the tools Bluebook keeps out of the header.
+    const moreBtn = nav.querySelector('#more-btn');
+    const moreMenu = nav.querySelector('#more-menu');
+    if (moreBtn && moreMenu) {
+      const closeMore = () => {
+        moreMenu.classList.remove('show');
+        moreBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', closeMore);
+      };
+      moreBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = moreMenu.classList.toggle('show');
+        moreBtn.setAttribute('aria-expanded', String(open));
+        if (open) setTimeout(() => document.addEventListener('click', closeMore), 0);
+      });
+      moreMenu.addEventListener('click', e => e.stopPropagation());
+      nav.querySelectorAll('.bb-more-item').forEach(item =>
+        item.addEventListener('click', () => closeMore()),
+      );
+    }
+
+    // Difficulty overrides now live inside the More menu.
     if (q.id.includes('-DC')) {
-      const setDiffBtn = nav.querySelector('#set-diff-btn');
-      const diffDropdown = nav.querySelector('#diff-dropdown');
-      if (setDiffBtn && diffDropdown) {
-        setDiffBtn.addEventListener('click', (e) => {
+      nav.querySelectorAll('.diff-opt-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
           e.stopPropagation();
-          diffDropdown.classList.toggle('show');
+          const val = parseInt((e.currentTarget as HTMLElement).dataset.val || '2', 10);
+          store.setQuestionDifficulty(q.id, val as any);
         });
-
-        const closeDropdown = () => {
-          diffDropdown.classList.remove('show');
-          document.removeEventListener('click', closeDropdown);
-        };
-        document.addEventListener('click', closeDropdown);
-
-        diffDropdown.querySelectorAll('.diff-opt-btn').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const val = parseInt((e.currentTarget as HTMLElement).dataset.val || '2', 10);
-            store.setQuestionDifficulty(q.id, val as any);
-          });
-        });
-      }
+      });
     }
 
     // Timer controls
