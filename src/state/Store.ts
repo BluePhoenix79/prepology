@@ -1,5 +1,6 @@
 import type { AppState, Question, TestSession } from '../types';
 import { calculatePredictedScore, updateTopicMastery } from '../utils/scoring';
+import { scopedKey } from '../utils/auth';
 
 export function parseFractionOrDecimal(val: string): number {
   const s = val.trim();
@@ -54,7 +55,8 @@ const defaultState: AppState = {
 };
 
 function loadState(): AppState {
-  const saved = localStorage.getItem('prepology_state') || localStorage.getItem('preplogy_state');
+  const stateKey = scopedKey('prepology_state');
+  const saved = localStorage.getItem(stateKey) || localStorage.getItem('preplogy_state');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -97,7 +99,7 @@ function loadState(): AppState {
       if (parsed.questionBank) {
         delete parsed.questionBank;
         try {
-          localStorage.setItem('prepology_state', JSON.stringify(parsed));
+          localStorage.setItem(stateKey, JSON.stringify(parsed));
         } catch (err) {
           console.error('Failed to prune legacy questionBank', err);
         }
@@ -113,7 +115,7 @@ function loadState(): AppState {
       };
     } catch (e) {
       console.error('Failed to load state', e);
-      localStorage.removeItem('prepology_state');
+      localStorage.removeItem(stateKey);
       localStorage.removeItem('preplogy_state');
     }
   }
@@ -131,7 +133,7 @@ function saveState(state: AppState) {
     }
     return value;
   }));
-  localStorage.setItem('prepology_state', JSON.stringify(stateToSave));
+  localStorage.setItem(scopedKey('prepology_state'), JSON.stringify(stateToSave));
 }
 
 class Store {
@@ -157,6 +159,20 @@ class Store {
 
   public getState(): AppState {
     return this.state;
+  }
+
+  /**
+   * Re-read state from whichever storage namespace is now active. Called when
+   * the signed-in account changes so the new account's progress replaces the
+   * previous one in memory. The question bank is kept — it is static data
+   * that has already been fetched and is not per-account.
+   */
+  public reloadForActiveUser() {
+    const bank = this.state.questionBank;
+    this.state = loadState();
+    this.state.questionBank = bank;
+    this.checkStreak();
+    this.listeners.forEach(listener => listener(this.state));
   }
 
   // Actions

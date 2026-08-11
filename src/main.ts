@@ -1,6 +1,15 @@
 import './styles/main.css';
 import { store } from './state/Store';
 import { getCachedQuestions, setCachedQuestions } from './utils/dbCache';
+import {
+  SCOPED_KEYS,
+  adoptAnonymousData,
+  getUser,
+  isConfigured,
+  onAuthChange,
+  renderGoogleButton,
+  signOut,
+} from './utils/auth';
 import { renderDashboard } from './views/Dashboard';
 import { renderTestSession } from './views/TestSession';
 import { renderReview } from './views/Review';
@@ -40,6 +49,89 @@ async function initQuestionBank() {
 initQuestionBank();
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
+
+/* ── Account ─────────────────────────────────────────────── */
+
+function initials(name: string): string {
+  return name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('') || '?';
+}
+
+function accountBlockHTML(): string {
+  const user = getUser();
+  if (user) {
+    return `
+      <div class="account-block">
+        <div class="account-identity">
+          ${user.picture
+            ? `<img class="account-avatar" src="${user.picture}" alt="" referrerpolicy="no-referrer" />`
+            : `<div class="account-avatar account-avatar--initials">${initials(user.name)}</div>`}
+          <div class="account-text">
+            <span class="account-name">${user.name}</span>
+            <span class="account-email">${user.email}</span>
+          </div>
+        </div>
+        <button class="account-action" id="account-signout">Sign out</button>
+      </div>`;
+  }
+  if (!isConfigured()) {
+    return `
+      <div class="account-block">
+        <p class="account-note">Google sign-in isn't configured. Set <code>VITE_GOOGLE_CLIENT_ID</code> to enable accounts.</p>
+      </div>`;
+  }
+  return `
+    <div class="account-block">
+      <button class="account-signin" id="account-signin">
+        <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.7v3h3.9c2.3-2.1 3.5-5.2 3.5-8.9z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+        Sign in with Google
+      </button>
+    </div>`;
+}
+
+function openSignInModal() {
+  document.getElementById('signin-modal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'signin-modal';
+  overlay.className = 'signin-overlay';
+  overlay.innerHTML = `
+    <div class="signin-card" role="dialog" aria-modal="true" aria-labelledby="signin-title">
+      <button class="signin-close" id="signin-close" aria-label="Close">&#10005;</button>
+      <img class="signin-logo" src="/prepology_logo.png" alt="" />
+      <h2 id="signin-title">Sign in to Prepology</h2>
+      <p>Keep your practice history, mistakes log, and vocabulary schedule under your own account on this device.</p>
+      <div class="signin-button-slot" id="signin-button-slot">
+        <span class="signin-loading">Loading Google sign-in…</span>
+      </div>
+      <p class="signin-fineprint">
+        Progress is stored in this browser and is not uploaded anywhere. Signing in keeps
+        separate progress for each account sharing this device.
+      </p>
+    </div>`;
+
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('#signin-close')?.addEventListener('click', close);
+  document.addEventListener('keydown', function onEsc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onEsc); }
+  });
+
+  document.body.appendChild(overlay);
+
+  const slot = overlay.querySelector<HTMLElement>('#signin-button-slot')!;
+  renderGoogleButton(slot).then(ok => {
+    if (!ok) {
+      slot.innerHTML = `<p class="signin-error">Couldn't load Google sign-in. Check your connection and that <code>VITE_GOOGLE_CLIENT_ID</code> is a valid OAuth client for this origin.</p>`;
+    }
+  });
+}
+
+// Signing in or out swaps which storage namespace the app reads from.
+onAuthChange(user => {
+  if (user) adoptAnonymousData(SCOPED_KEYS);
+  document.getElementById('signin-modal')?.remove();
+  store.reloadForActiveUser();
+});
 
 function render() {
   const state = store.getState();
@@ -99,6 +191,7 @@ function render() {
         </div>
       </div>
       <div style="padding: 1rem; border-top: 1px solid var(--c-border); margin-top: auto;">
+        ${accountBlockHTML()}
         <button class="btn" id="side-theme-toggle" style="width:100%; background:var(--c-elevated); border:1px solid var(--c-border); color:var(--c-text); font-size:0.8rem; padding:0.5rem; border-radius:8px; cursor:pointer;">
           ${state.theme === 'light' ? 'Dark Mode' : 'Light Mode'}
         </button>
@@ -142,6 +235,8 @@ function render() {
       const cur = store.getState().theme || 'dark';
       store.setTheme(cur === 'dark' ? 'light' : 'dark');
     });
+    sidebar.querySelector('#account-signin')?.addEventListener('click', openSignInModal);
+    sidebar.querySelector('#account-signout')?.addEventListener('click', () => signOut());
   }
 
   // Trigger MathJax typeset to compile LaTeX math formulas

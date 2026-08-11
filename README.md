@@ -97,12 +97,32 @@ Generates clean, static, production-ready assets inside the `dist/` directory.
 
 ---
 
+## 🔐 Google Sign-In Setup
+
+Sign-in is optional. With no client ID configured the app behaves exactly as before and the UI says so instead of showing a button that cannot work.
+
+1. Create an **OAuth 2.0 Client ID** (type *Web application*) at [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials).
+2. Under **Authorised JavaScript origins**, add every origin you serve from, e.g. `http://localhost:5173` and your deployed domain. Google Identity Services uses origins, not redirect URIs.
+3. Copy `.env.example` to `.env.local` and set the value:
+   ```
+   VITE_GOOGLE_CLIENT_ID=your-id.apps.googleusercontent.com
+   ```
+
+The client ID is a public value — this flow has no client secret, so it is safe in the bundle.
+
+> **Scope of this feature.** Prepology is a static app with no backend, so the Google ID token is decoded in the browser and **not verified** against Google's keys. The identity labels the profile and namespaces locally-stored progress; it is not an authorisation boundary and grants access to nothing. Progress still lives only in this browser — cloud sync remains on the roadmap, and that is the point at which tokens must be verified server-side.
+
+---
+
 ## 💾 Storage Schema (LocalStorage)
-Prepology uses two primary keys in `localStorage` to preserve progress:
+Prepology uses these keys in `localStorage` to preserve progress:
 - `prepology_state`: Stores user settings, difficulty overrides, mistakes log, and full solve history.
 - `prepology_vocab_bookmarks`: Tracks flagged vocabulary cards.
+- `prepology_auth`: The signed-in Google profile, when sign-in is configured and used.
 
 *Note: Stored state from previous versions (`preplogy_`) is automatically detected and migrated on start.*
+
+*When signed in, per-account keys are suffixed with `__u_<google-account-id>` so several people can share a browser without seeing each other's progress. Signing in for the first time carries any existing anonymous progress into the new account.*
 
 ---
 
@@ -111,7 +131,7 @@ Prepology uses two primary keys in `localStorage` to preserve progress:
 Here is a roadmap of features planned for the future evolution of Prepology:
 
 ### 🌟 Core Planned Features
-- [ ] **Online log-in and account creation**: Allow users to register, sign in, secure their accounts with email/password or OAuth, and customize their profiles.
+- [x] **Online log-in and account creation**: Google OAuth sign-in via Google Identity Services, with progress kept separately per account on the device. See [Google sign-in](#-google-sign-in-setup). *(Client-side only — cloud sync is still open, below.)*
 - [ ] **Cloud data storage**: Transition from pure client-side `localStorage` to a centralized cloud database (e.g., Firebase or Supabase) to securely save progress, custom difficulty settings, mistakes, and history.
 - [ ] **Public hosting and deployment**: Host the web application on a public platform (e.g., Vercel, Netlify, or AWS) so users can access Prepology from any device.
 - [ ] **Automatic & curated practice test creation**: Add a module that dynamically generates full-length, adaptive SAT mock exams using historical weighting and official subscore rules.
