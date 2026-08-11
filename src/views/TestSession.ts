@@ -300,6 +300,19 @@ function renderMath(text: string): string {
     .replace(/\n/g, '<br>');
 }
 
+/* College Board tables can be wider than the column they land in. Wrap each one
+   so it scrolls on its own instead of stretching the passage/question layout. */
+function wrapContentTables(scope: HTMLElement) {
+  scope.querySelectorAll('table').forEach(table => {
+    if (table.classList.contains('bb-spr-table')) return;
+    if (table.parentElement?.classList.contains('bb-table-scroll')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'bb-table-scroll';
+    table.replaceWith(wrap);
+    wrap.appendChild(table);
+  });
+}
+
 function getChoiceExplanation(rationale: string, choiceId: string): string {
   if (!rationale) return '';
   const tempDiv = document.createElement('div');
@@ -635,6 +648,8 @@ export function renderTestSession(): HTMLElement {
       main.appendChild(single);
     }
 
+    wrapContentTables(main);
+
     root.appendChild(main);
 
     // Resizable split screen logic
@@ -847,10 +862,12 @@ export function renderTestSession(): HTMLElement {
               body.innerHTML = renderMath(q.rationale);
               btn.textContent = 'Show Specific Explanation';
             }
+            wrapContentTables(body as HTMLElement);
           }
         });
       }
-      
+
+      wrapContentTables(fb);
       actionEl.appendChild(fb);
     }
 

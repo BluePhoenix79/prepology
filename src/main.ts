@@ -1,6 +1,7 @@
 import './styles/main.css';
 import { store } from './state/Store';
 import { getCachedQuestions, setCachedQuestions } from './utils/dbCache';
+import { initInteractions } from './utils/interactions';
 import { renderDashboard } from './views/Dashboard';
 import { renderTestSession } from './views/TestSession';
 import { renderReview } from './views/Review';
@@ -41,6 +42,46 @@ initQuestionBank();
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
+type NavView = 'dashboard' | 'vocab' | 'review' | 'saved' | 'analytics';
+
+const NAV_GROUPS: Array<{ label: string; items: Array<{ view: NavView; label: string; icon: string }> }> = [
+  {
+    label: 'SAT',
+    items: [
+      { view: 'dashboard', label: 'Home', icon: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>' },
+    ],
+  },
+  {
+    label: 'Practice',
+    items: [
+      { view: 'vocab', label: 'Vocab Cards', icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>' },
+    ],
+  },
+  {
+    label: 'Progress',
+    items: [
+      { view: 'review', label: 'Mistakes Log', icon: '<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>' },
+      { view: 'saved', label: 'Saved Questions', icon: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>' },
+      { view: 'analytics', label: 'Analytics', icon: '<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>' },
+    ],
+  },
+];
+
+function navGroupHTML(current: string): string {
+  return NAV_GROUPS.map(group => `
+    <div class="menu-group">
+      <div class="menu-label">${group.label}</div>
+      ${group.items.map(item => `
+        <button class="menu-item ${current === item.view ? 'active' : ''}" data-view="${item.view}"
+                aria-current="${current === item.view ? 'page' : 'false'}" data-tip="${item.label}">
+          <svg class="menu-icon-svg" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">${item.icon}</svg>
+          <span class="menu-item-label">${item.label}</span>
+        </button>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
 function render() {
   const state = store.getState();
   app.innerHTML = ''; // Clear current view
@@ -59,48 +100,27 @@ function render() {
 
     const sidebar = document.createElement('div');
     sidebar.className = 'app-sidebar';
+    const isLight = state.theme === 'light';
     sidebar.innerHTML = `
-      <div class="sidebar-brand" style="display:flex; flex-direction:column; align-items:center; text-align:center; padding: 2rem 1rem 1rem 1rem; gap: 0.75rem;">
-        <img src="/prepology_logo.png" alt="Prepology Logo" style="width:64px; height:64px; object-fit:contain; border-radius:12px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.25));" />
-        <div class="sidebar-brand-text" style="display:flex; flex-direction:column; align-items:center; gap:0.25rem;">
-          <h2 style="font-size:1.35rem; font-weight:800; color:var(--c-text); margin:0;">Prepology</h2>
+      <div class="sidebar-brand">
+        <img class="sidebar-logo" src="/prepology_logo.png" alt="" />
+        <div class="sidebar-brand-text">
+          <h2>Prepology</h2>
           <span class="sidebar-sat-pill">SAT</span>
         </div>
       </div>
-      <div class="sidebar-menu">
-        <div class="menu-group">
-          <div class="menu-label">SAT</div>
-          <button class="menu-item ${state.currentView === 'dashboard' ? 'active' : ''}" id="side-home">
-            <svg class="menu-icon-svg" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            Home
-          </button>
-        </div>
-        <div class="menu-group">
-          <div class="menu-label">PRACTICE</div>
-          <button class="menu-item ${state.currentView === 'vocab' ? 'active' : ''}" id="side-vocab">
-            <svg class="menu-icon-svg" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-            Vocab Cards
-          </button>
-        </div>
-        <div class="menu-group">
-          <div class="menu-label">PROGRESS</div>
-          <button class="menu-item ${state.currentView === 'review' ? 'active' : ''}" id="side-review">
-            <svg class="menu-icon-svg" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-            Mistakes Log
-          </button>
-          <button class="menu-item ${state.currentView === 'saved' ? 'active' : ''}" id="side-saved">
-            <svg class="menu-icon-svg" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-            Saved Questions
-          </button>
-          <button class="menu-item ${state.currentView === 'analytics' ? 'active' : ''}" id="side-analytics">
-            <svg class="menu-icon-svg" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-            Analytics
-          </button>
-        </div>
-      </div>
-      <div style="padding: 1rem; border-top: 1px solid var(--c-border); margin-top: auto;">
-        <button class="btn" id="side-theme-toggle" style="width:100%; background:var(--c-elevated); border:1px solid var(--c-border); color:var(--c-text); font-size:0.8rem; padding:0.5rem; border-radius:8px; cursor:pointer;">
-          ${state.theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+      <nav class="sidebar-menu" aria-label="Main">
+        ${navGroupHTML(state.currentView)}
+      </nav>
+      <div class="sidebar-footer">
+        <button class="theme-toggle" id="side-theme-toggle" data-tip="${isLight ? 'Dark mode' : 'Light mode'}"
+                aria-label="Switch to ${isLight ? 'dark' : 'light'} mode">
+          <svg class="theme-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${isLight
+              ? '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>'
+              : '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>'}
+          </svg>
+          <span class="menu-item-label">${isLight ? 'Dark mode' : 'Light mode'}</span>
         </button>
       </div>
     `;
@@ -133,15 +153,15 @@ function render() {
     app.appendChild(shell);
 
     // Event listeners
-    sidebar.querySelector('#side-home')?.addEventListener('click', () => store.setView('dashboard'));
-    sidebar.querySelector('#side-vocab')?.addEventListener('click', () => store.setView('vocab'));
-    sidebar.querySelector('#side-review')?.addEventListener('click', () => store.setView('review'));
-    sidebar.querySelector('#side-saved')?.addEventListener('click', () => store.setView('saved'));
-    sidebar.querySelector('#side-analytics')?.addEventListener('click', () => store.setView('analytics'));
+    sidebar.querySelectorAll<HTMLButtonElement>('.menu-item[data-view]').forEach(btn => {
+      btn.addEventListener('click', () => store.setView(btn.dataset.view as NavView));
+    });
     sidebar.querySelector('#side-theme-toggle')?.addEventListener('click', () => {
       const cur = store.getState().theme || 'dark';
       store.setTheme(cur === 'dark' ? 'light' : 'dark');
     });
+
+    mainContent.classList.add('view-enter');
   }
 
   // Trigger MathJax typeset to compile LaTeX math formulas
@@ -151,6 +171,7 @@ function render() {
 }
 
 // Initial render
+initInteractions();
 render();
 
 // Subscribe to state changes for re-rendering
