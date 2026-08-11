@@ -46,6 +46,29 @@
   /* Typography */
   --font:       'Inter', system-ui, sans-serif;
   --font-serif: 'Noto Serif', 'Georgia', serif;
+
+  /* Motion */
+  --dur-1: 110ms;   /* state flips: color, opacity */
+  --dur-2: 200ms;   /* movement: hover lift, slide */
+  --dur-3: 340ms;   /* layout: drawers, page enter */
+  --ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  /* Layout */
+  --sidebar-w:      260px;
+  --sidebar-rail-w: 76px;
+  --ring: 0 0 0 3px rgba(59,130,246,0.35);
+}
+
+/* Motion is opt-out for people who ask the OS to reduce it. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 :root[data-theme="light"] {
@@ -119,6 +142,80 @@ body {
 }
 
 /* ════════════════════════════════════════════════════════════
+   INTERACTION PRIMITIVES
+════════════════════════════════════════════════════════════ */
+
+/* Keyboard users get a visible ring; mouse users don't. */
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--r-xs);
+}
+
+/* Cursor-tracked sheen. `--mx`/`--my` are written by utils/interactions.ts. */
+.u-spotlight { position: relative; isolation: isolate; }
+.u-spotlight::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Negative index keeps the sheen above the element's own background but
+     below its text; `isolation: isolate` stops it escaping the card. */
+  z-index: -1;
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease);
+  background: radial-gradient(
+    280px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(59,130,246,0.13),
+    transparent 65%
+  );
+}
+.u-spotlight:hover::after { opacity: 1; }
+:root[data-theme="light"] .u-spotlight::after {
+  background: radial-gradient(
+    280px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(37,99,235,0.09),
+    transparent 65%
+  );
+}
+
+/* Click ripple. The wave element is created on pointerdown; these selectors
+   must match RIPPLE_SELECTOR in utils/interactions.ts so the wave is clipped
+   to the control it came from. */
+.u-ripple,
+.btn,
+.op-btn-primary,
+.bb-check-btn,
+.bb-next-btn,
+.op-source-tab { position: relative; overflow: hidden; }
+.u-ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.28;
+  pointer-events: none;
+  transform: scale(0);
+  animation: rippleOut 560ms var(--ease-out) forwards;
+}
+@keyframes rippleOut {
+  to { transform: scale(1); opacity: 0; }
+}
+
+/* Shared hover lift for card-like surfaces. */
+.u-lift {
+  transition: transform var(--dur-2) var(--ease-out),
+              box-shadow var(--dur-2) var(--ease-out),
+              border-color var(--dur-1) var(--ease);
+}
+.u-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--c-border-md);
+}
+
+/* ════════════════════════════════════════════════════════════
    BUTTONS
 ════════════════════════════════════════════════════════════ */
 .btn {
@@ -134,13 +231,14 @@ body {
   border: none;
   border-radius: var(--r-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
   white-space: nowrap;
   background: var(--c-blue);
   color: #fff;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+              transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
 }
 .btn:hover { background: var(--c-blue-dark); transform: translateY(-1px); box-shadow: var(--c-blue-glow); }
-.btn:active { transform: translateY(0); }
+.btn:active { transform: translateY(0) scale(0.985); transition-duration: var(--dur-1); }
 .btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
 .btn-ghost {
@@ -548,7 +646,12 @@ select:focus, input:focus {
   margin-bottom: 1.375rem;
   background: #efefef;
   border-radius: 6px;
+  /* `fit-content` alone lets the toolbar grow past a narrow question column
+     and clip its trailing buttons — cap it and allow a second row. */
   width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  row-gap: 2px;
   padding: 3px;
 }
 
@@ -838,6 +941,8 @@ select:focus, input:focus {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
   margin-bottom: 2rem;
 }
 .page-topbar h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
@@ -1159,7 +1264,7 @@ select:focus, input:focus {
 
 /* App Sidebar */
 .app-sidebar {
-  width: 260px;
+  width: var(--sidebar-w);
   background: var(--c-surface);
   color: var(--c-text-2);
   display: flex;
@@ -1167,31 +1272,50 @@ select:focus, input:focus {
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--c-border);
   flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width var(--dur-3) var(--ease-out);
 }
 .sidebar-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  text-align: center;
   gap: 0.75rem;
-  margin-bottom: 2.25rem;
-  padding: 0 0.5rem;
+  margin-bottom: 2rem;
+  padding: 0.75rem 0.5rem 0;
 }
 .sidebar-logo {
-  font-size: 1.75rem;
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  border-radius: 14px;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.35));
+  transition: transform var(--dur-3) var(--ease-spring);
+}
+.sidebar-brand:hover .sidebar-logo { transform: scale(1.06) rotate(-3deg); }
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
 }
 .sidebar-brand-text h2 {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--c-text);
   line-height: 1.2;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 .sidebar-sat-pill {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   color: var(--c-blue);
   background: var(--c-blue-dim);
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--pill);
 }
 
 .sidebar-menu {
@@ -1199,6 +1323,37 @@ select:focus, input:focus {
   flex-direction: column;
   gap: 1.5rem;
 }
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--c-border);
+}
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--c-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  color: var(--c-text-2);
+  font-family: var(--font);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+              border-color var(--dur-1) var(--ease), transform var(--dur-2) var(--ease-out);
+}
+.theme-toggle:hover {
+  background: var(--c-card-hover);
+  border-color: var(--c-border-md);
+  color: var(--c-text);
+  transform: translateY(-1px);
+}
+.theme-toggle:active { transform: translateY(0); }
+.theme-toggle-icon { flex-shrink: 0; transition: transform var(--dur-3) var(--ease-spring); }
+.theme-toggle:hover .theme-toggle-icon { transform: rotate(35deg); }
 .menu-group {
   display: flex;
   flex-direction: column;
@@ -1214,6 +1369,7 @@ select:focus, input:focus {
   text-transform: uppercase;
 }
 .menu-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1223,33 +1379,109 @@ select:focus, input:focus {
   font-size: 0.9rem;
   font-weight: 600;
   padding: 0.625rem 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   width: 100%;
   text-align: left;
-  transition: all 0.2s;
   font-family: var(--font);
+  overflow: hidden;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+              transform var(--dur-2) var(--ease-out);
+}
+/* Active marker slides in from the left rather than just appearing. */
+.menu-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--c-blue);
+  transform: translateY(-50%);
+  transition: height var(--dur-2) var(--ease-spring);
 }
 .menu-item:hover {
-  background: rgba(255,255,255,0.04);
-  color: #fff;
+  background: var(--c-card-hover);
+  color: var(--c-text);
+  transform: translateX(2px);
 }
+.menu-item:active { transform: translateX(2px) scale(0.985); }
 .menu-item.active {
   background: var(--c-elevated);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  color: var(--c-text);
+  box-shadow: var(--shadow-sm);
+  transform: none;
 }
+.menu-item.active::before { height: 60%; }
+.menu-item.active .menu-icon-svg { color: var(--c-blue); }
+.menu-item-label { white-space: nowrap; }
 .menu-icon-svg {
   flex-shrink: 0;
   stroke: currentColor;
+  transition: color var(--dur-1) var(--ease), transform var(--dur-2) var(--ease-spring);
+}
+.menu-item:hover .menu-icon-svg { transform: scale(1.12); }
+
+/* ── Icon-rail mode: below this width a 260px sidebar eats the content ── */
+@media (max-width: 1100px) {
+  .app-shell { --sidebar-w: var(--sidebar-rail-w); }
+  .app-sidebar { padding: 1.25rem 0.6rem; align-items: center; }
+  .sidebar-brand { margin-bottom: 1.5rem; }
+  .sidebar-brand-text,
+  .menu-label,
+  .menu-item-label { display: none; }
+  .sidebar-logo { width: 40px; height: 40px; }
+  .sidebar-menu { gap: 0.75rem; width: 100%; }
+  .menu-item, .theme-toggle { justify-content: center; padding: 0.65rem 0; gap: 0; }
+  .menu-item:hover { transform: none; }
+  .sidebar-footer { width: 100%; }
+
+  /* Labels return as tooltips so the rail stays legible. */
+  .menu-item[data-tip]::after,
+  .theme-toggle[data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    padding: 0.35rem 0.6rem;
+    background: var(--c-elevated);
+    border: 1px solid var(--c-border-md);
+    border-radius: var(--r-xs);
+    color: var(--c-text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+    transition: opacity var(--dur-1) var(--ease), transform var(--dur-2) var(--ease-out);
+  }
+  .menu-item[data-tip]:hover::after,
+  .theme-toggle[data-tip]:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+  .menu-item { overflow: visible; }
+  .theme-toggle { position: relative; }
 }
 
 /* App Main Content Area */
 .app-main-content {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   background: var(--c-bg);
-  padding: 2.5rem 3rem;
+  padding: 2.5rem clamp(1.25rem, 4vw, 3rem);
+}
+
+/* Each view fades up on mount so navigation reads as a transition, not a cut. */
+.view-enter > * { animation: viewEnter var(--dur-3) var(--ease-out) both; }
+@keyframes viewEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* OnePrep Dashboard CSS */
@@ -1331,18 +1563,24 @@ select:focus, input:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+  /* Without wrapping, the controls squeeze the title until it breaks
+     mid-phrase ("Reading / & / Writing"). */
+  flex-wrap: wrap;
 }
 .op-title {
-  font-size: 1.75rem;
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
   font-weight: 800;
-  color: #fff;
+  color: var(--c-text);
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 .op-header-actions {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 .op-search-box {
   display: flex;
@@ -1432,6 +1670,9 @@ select:focus, input:focus {
   padding: 0.35rem 0.75rem;
   border-radius: 6px;
   height: 34px;
+  white-space: nowrap;
+  transition: border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+              background var(--dur-1) var(--ease);
   box-sizing: border-box;
 }
 .op-switch {
@@ -1486,7 +1727,7 @@ select:focus, input:focus {
 .op-practice-info h3 {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--c-text);
   margin-bottom: 0.25rem;
 }
 .op-practice-info p {
@@ -1551,7 +1792,7 @@ select:focus, input:focus {
 .op-domain-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--c-text);
   margin-bottom: 0.75rem;
   padding-left: 0.5rem;
   letter-spacing: -0.01em;
@@ -1584,25 +1825,37 @@ select:focus, input:focus {
 }
 
 .op-play-icon {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border: 1.5px solid var(--c-border-md);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
+  display: grid;
+  place-items: center;
   color: var(--c-text-2);
   background: transparent;
-  transition: all 0.2s;
   flex-shrink: 0;
+  transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease),
+              color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease),
+              transform var(--dur-2) var(--ease-spring);
+}
+.op-play-icon svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+  /* A right-pointing triangle's visual centre sits left of its bounding box
+     centre, so nudge it right to look centred inside the circle. */
+  margin-left: 1.5px;
+  transition: transform var(--dur-2) var(--ease-spring);
 }
 .op-skill-row:hover:not(.disabled) .op-play-icon {
   background: var(--c-blue);
   border-color: var(--c-blue);
   color: #fff;
-  box-shadow: 0 0 10px rgba(59,130,246,0.4);
+  box-shadow: 0 0 0 4px var(--c-blue-dim), 0 4px 12px rgba(59,130,246,0.35);
+  transform: scale(1.08);
 }
+.op-skill-row:hover:not(.disabled) .op-play-icon svg { transform: scale(1.15); }
+.op-skill-row:active:not(.disabled) .op-play-icon { transform: scale(0.96); }
 .op-skill-name {
   font-size: 0.95rem;
   font-weight: 600;
@@ -1657,7 +1910,7 @@ select:focus, input:focus {
   color: var(--c-text);
 }
 .app-main-content .page-topbar h1 {
-  color: #fff;
+  color: var(--c-text);
   font-size: 1.75rem;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -2290,5 +2543,125 @@ mark.bb-hl-underline { text-decoration: underline; text-decoration-color: #0284c
 }
 .bb-spr-table th.unacceptable {
   color: #0284c7;
+}
+
+/* ════════════════════════════════════════════════════════════
+   COLLEGE BOARD CONTENT TABLES
+
+   Scraped question HTML ships legacy `border="1"` plus per-cell inline
+   `width: 47.7376%`-style hints from the CB authoring tool. Left alone the
+   browser renders beveled 3D borders and wildly uneven columns. These rules
+   normalise that: presentational attributes lose to any class selector, and
+   the inline widths need `!important` to clear.
+════════════════════════════════════════════════════════════ */
+.bb-q-text table,
+.bb-passage-text table,
+.bb-feedback-body table,
+.rationale-text table,
+.explanation-content table {
+  /* `separate` rather than `collapse`: a collapsed table's outer border is
+     clipped away by the radius + overflow needed for rounded corners.
+     Doubled interior lines are avoided by giving cells only right/bottom
+     edges below. */
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1.15rem 0;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.bb-q-text table th, .bb-q-text table td,
+.bb-passage-text table th, .bb-passage-text table td,
+.bb-feedback-body table th, .bb-feedback-body table td,
+.rationale-text table th, .rationale-text table td,
+.explanation-content table th, .explanation-content table td {
+  width: auto !important;      /* clear CB's fractional inline widths */
+  border: 0;
+  border-right: 1px solid #dbe3ec;
+  border-bottom: 1px solid #dbe3ec;
+  padding: 0.55rem 0.9rem;
+  text-align: center;
+  vertical-align: middle;
+  color: #1a1a1a;
+}
+.bb-q-text table tr > *:last-child,
+.bb-passage-text table tr > *:last-child,
+.bb-feedback-body table tr > *:last-child,
+.rationale-text table tr > *:last-child,
+.explanation-content table tr > *:last-child { border-right: 0; }
+.bb-q-text table tbody tr:last-child > *,
+.bb-passage-text table tbody tr:last-child > *,
+.bb-feedback-body table tbody tr:last-child > *,
+.rationale-text table tbody tr:last-child > *,
+.explanation-content table tbody tr:last-child > * { border-bottom: 0; }
+.bb-q-text table th,
+.bb-passage-text table th,
+.bb-feedback-body table th,
+.rationale-text table th,
+.explanation-content table th {
+  background: #f1f5f9;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+.bb-q-text table tbody tr:nth-child(even) td,
+.bb-passage-text table tbody tr:nth-child(even) td,
+.bb-feedback-body table tbody tr:nth-child(even) td,
+.rationale-text table tbody tr:nth-child(even) td,
+.explanation-content table tbody tr:nth-child(even) td {
+  background: #fafcfe;
+}
+/* A caption above the table is often the data label — keep it attached. */
+.bb-q-text table caption,
+.bb-passage-text table caption,
+.bb-feedback-body table caption {
+  caption-side: top;
+  padding: 0 0 0.5rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #0f172a;
+  text-align: left;
+}
+
+/* Wrapper added by TestSession so wide tables scroll instead of
+   overflowing the passage/question column. */
+.bb-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.bb-table-scroll > table { margin: 1.15rem 0; }
+
+/* Mistakes log and Saved cards render on the dark shell, not the white
+   Bluebook surface, so their tables need the dark treatment. */
+.app-main-content .rationale-text table,
+.app-main-content .explanation-content table {
+  background: var(--c-surface);
+  border-color: var(--c-border-md);
+}
+.app-main-content .rationale-text table th,
+.app-main-content .explanation-content table th {
+  background: var(--c-elevated);
+  color: var(--c-text);
+}
+.app-main-content .rationale-text table th,
+.app-main-content .explanation-content table th,
+.app-main-content .rationale-text table td,
+.app-main-content .explanation-content table td {
+  border-right-color: var(--c-border);
+  border-bottom-color: var(--c-border);
+}
+.app-main-content .rationale-text table td,
+.app-main-content .explanation-content table td {
+  color: var(--c-text-2);
+}
+.app-main-content .rationale-text table tbody tr:nth-child(even) td,
+.app-main-content .explanation-content table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,0.02);
 }
 

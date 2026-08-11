@@ -121,7 +121,7 @@ export function renderDashboard(): HTMLElement {
         </div>
       </div>
 
-      <div class="op-practice-hero">
+      <div class="op-practice-hero u-spotlight u-lift">
         <div class="op-practice-info">
           <h3 style="display:flex;align-items:center;gap:0.5rem;">${missedOnly ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg> Review Missed Questions' : 'Free Practice'}</h3>
           <p>${missedOnly
@@ -179,9 +179,9 @@ export function renderDashboard(): HTMLElement {
                   const isSkillWeak = solved >= 3 && accuracy < 60;
 
                   return `
-                    <div class="op-skill-row ${isPlayable ? '' : 'disabled'}" data-domain="${domainName}" data-skill="${skillName}">
+                    <div class="op-skill-row ${isPlayable ? '' : 'disabled'} ${isPlayable ? 'u-spotlight' : ''}" data-domain="${domainName}" data-skill="${skillName}">
                       <div class="op-col-topic">
-                        <span class="op-play-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:0.25rem;"><path d="M5 3l14 9-14 9V3z"></path></svg></span>
+                        <span class="op-play-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 3l14 9-14 9V3z"></path></svg></span>
                         <span class="op-skill-name">${skillName}${isSkillWeak ? ' <span style="font-size:0.65rem;color:#b91c1c;font-weight:700;">↓</span>' : ''}</span>
                       </div>
                       <div class="op-col-progress">
