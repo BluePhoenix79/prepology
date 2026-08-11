@@ -928,6 +928,224 @@ select:focus, input:focus {
 }
 .vocab-dot.active { background: var(--c-blue); transform: scale(1.3); }
 
+/* ── Spaced repetition chrome ── */
+.vocab-modes { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+.vocab-mode-btn {
+  padding: 0.4rem 0.8rem;
+  background: var(--c-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--pill);
+  color: var(--c-text-2);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.vocab-mode-btn:hover { background: var(--c-card-hover); color: var(--c-text); }
+.vocab-mode-btn.active {
+  background: var(--c-blue);
+  border-color: var(--c-blue);
+  color: #fff;
+}
+
+.vocab-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+.vocab-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.8rem 1rem;
+  background: var(--c-card);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+}
+.vocab-stat-num { font-size: 1.5rem; font-weight: 800; color: var(--c-text); line-height: 1.1; }
+.vocab-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+
+/* Mastered / learning / new split across the whole deck. */
+.vocab-progress {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  margin-bottom: 2rem;
+  border-radius: var(--pill);
+  overflow: hidden;
+}
+.vocab-progress-seg { border-radius: var(--pill); transition: flex 0.4s ease; }
+.vocab-progress-seg.is-mastered { background: var(--c-green); }
+.vocab-progress-seg.is-learning { background: var(--c-blue); }
+.vocab-progress-seg.is-fresh    { background: var(--c-elevated); }
+
+.vocab-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+.vocab-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.vocab-box-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--pill);
+  background: var(--c-elevated);
+  color: var(--c-text-2);
+}
+.vocab-box-pill.is-new    { background: var(--c-blue-dim); color: var(--c-blue); }
+.vocab-box-pill.is-lapsed { background: var(--c-red-dim);  color: var(--c-red); }
+.vocab-count { font-size: 0.75rem; color: var(--c-text-3); font-weight: 600; }
+
+.vocab-star {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--c-text-3);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.2s cubic-bezier(0.34,1.4,0.64,1);
+}
+.vocab-star:hover { background: var(--c-elevated); color: var(--c-amber); transform: scale(1.1); }
+.vocab-star.active { color: var(--c-amber); }
+
+.vocab-hint-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  margin-bottom: 0.75rem;
+}
+.vocab-word {
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--c-blue);
+}
+.vocab-hint { margin-top: 0.9rem; font-size: 0.78rem; color: var(--c-text-3); }
+.vocab-hint kbd {
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--c-border-md);
+  border-radius: 4px;
+  background: var(--c-elevated);
+  color: var(--c-text-2);
+}
+.vocab-word-sm { font-size: 1.2rem; font-weight: 800; color: var(--c-blue); margin-bottom: 0.6rem; }
+.vocab-def { font-size: 1rem; line-height: 1.6; color: var(--c-text); margin-bottom: 0.85rem; }
+.vocab-ex {
+  font-size: 0.85rem;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--c-text-2);
+  border-top: 1px dashed var(--c-border);
+  padding-top: 0.75rem;
+}
+.vocab-ex::before { content: '\201C'; }
+.vocab-ex::after  { content: '\201D'; }
+
+/* Grading row — revealed once the card is flipped. */
+.vocab-grade {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 560px;
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.22,1,0.36,1);
+}
+.vocab-grade.is-hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+.vocab-grade-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.7rem 1rem;
+  background: var(--c-card);
+  border: 1.5px solid var(--c-border-md);
+  border-radius: var(--r-sm);
+  color: var(--c-text);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.2s cubic-bezier(0.22,1,0.36,1);
+}
+.vocab-grade-btn:hover { transform: translateY(-2px); }
+.vocab-grade-btn:active { transform: translateY(0) scale(0.985); }
+.vocab-grade-btn.is-again:hover { border-color: var(--c-red);   background: var(--c-red-dim); }
+.vocab-grade-btn.is-good:hover  { border-color: var(--c-green); background: var(--c-green-dim); }
+.vocab-grade-btn.is-again .vocab-grade-name { color: var(--c-red); }
+.vocab-grade-btn.is-good  .vocab-grade-name { color: var(--c-green); }
+.vocab-grade-key {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: var(--c-elevated);
+  color: var(--c-text-3);
+}
+.vocab-grade-when { font-size: 0.7rem; font-weight: 500; color: var(--c-text-3); }
+.vocab-reveal-nudge { font-size: 0.78rem; color: var(--c-text-3); }
+
+.vocab-browse-nav { display: flex; gap: 0.6rem; align-items: center; }
+
+.vocab-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 3rem 2rem;
+  max-width: 440px;
+  background: var(--c-card);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r);
+}
+.vocab-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 0.35rem;
+  border-radius: 50%;
+  background: var(--c-green-dim);
+  color: var(--c-green);
+}
+.vocab-empty h2 { font-size: 1.25rem; font-weight: 800; color: var(--c-text); }
+.vocab-empty p  { font-size: 0.9rem; color: var(--c-text-2); margin-bottom: 0.6rem; }
+
 /* Persistent App Shell - Premium Dark Mode */
 .app-shell {
   display: flex;
@@ -1487,21 +1705,9 @@ select:focus, input:focus {
   background: var(--c-surface);
   border: none;
 }
-.app-main-content .vocab-face h2 {
-  color: var(--c-blue) !important;
-}
-.app-main-content .vocab-face p {
-  color: var(--c-text-3) !important;
-}
-.app-main-content .vocab-back h3 {
-  color: var(--c-blue) !important;
-}
-.app-main-content .vocab-back p {
-  color: var(--c-text) !important;
-}
-.app-main-content .vocab-back span {
-  color: var(--c-text-2) !important;
-}
+/* Per-element colours now live on the .vocab-word / .vocab-def / .vocab-ex
+   classes; the blanket `!important` overrides that used to sit here fought
+   them (every <p> on the back face collapsed to one colour). */
 .app-main-content .vocab-dot {
   background: var(--c-elevated);
 }
