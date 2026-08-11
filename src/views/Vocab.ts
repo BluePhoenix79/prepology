@@ -164,6 +164,34 @@ export function renderVocab(): HTMLElement {
       </div>`;
   }
 
+  /**
+   * Flipping and bookmarking mutate the existing DOM instead of redrawing.
+   * A redraw replaces the card element, so the `.flipped` class would land on
+   * a brand-new node with nothing to transition from and the 3D flip would
+   * snap instantly. Redraws are reserved for changing which card is shown.
+   */
+  function applyFlipState() {
+    root.querySelector('#card')?.classList.toggle('flipped', flipped);
+    root.querySelector('.vocab-grade')?.classList.toggle('is-hidden', !flipped);
+    root.querySelector('.vocab-reveal-nudge')?.classList.toggle('is-hidden', flipped);
+  }
+
+  function flip() {
+    if (!queue[qIdx]) return;
+    flipped = !flipped;
+    applyFlipState();
+  }
+
+  function applyBookmarkState(word: string) {
+    const on = getBookmarkedVocab().includes(word);
+    root.querySelectorAll<HTMLElement>('.vocab-star').forEach(btn => {
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-label', on ? 'Remove bookmark' : 'Bookmark word');
+    });
+    const tab = root.querySelector('.vocab-mode-btn[data-mode="saved"]');
+    if (tab) tab.textContent = `Bookmarked (${getBookmarkedVocab().length})`;
+  }
+
   function draw() {
     const stats = deckStats(WORDS, srs);
     const bookmarks = getBookmarkedVocab();
@@ -173,10 +201,12 @@ export function renderVocab(): HTMLElement {
     const bookmarked = word ? bookmarks.includes(word) : false;
     const isReview = mode === 'review';
 
+    // The fill is driven by the .active class in CSS rather than a fill
+    // attribute, so bookmarking can be toggled in place without a redraw.
     const star = (id: string) => `
       <button class="vocab-star ${bookmarked ? 'active' : ''}" id="${id}"
               aria-label="${bookmarked ? 'Remove bookmark' : 'Bookmark word'}">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="${bookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
       </button>`;
 
     const modeTabs: Array<[Mode, string]> = [
@@ -246,7 +276,7 @@ export function renderVocab(): HTMLElement {
                 <span class="vocab-grade-when">back in ${formatInterval(Math.min(card.box + 1, MAX_BOX))}</span>
               </button>
             </div>
-            ${flipped ? '' : '<p class="vocab-reveal-nudge">Reveal the definition to grade yourself</p>'}
+            <p class="vocab-reveal-nudge${flipped ? ' is-hidden' : ''}">Reveal the definition to grade yourself</p>
           ` : `
             <div class="vocab-browse-nav">
               <button class="btn btn-ghost" id="prev-btn" ${qIdx === 0 ? 'disabled' : ''}>Previous</button>
@@ -277,7 +307,6 @@ export function renderVocab(): HTMLElement {
 
     if (!entry) return;
 
-    const flip = () => { flipped = !flipped; draw(); };
     root.querySelector('#card')?.addEventListener('click', e => {
       if ((e.target as HTMLElement).closest('.vocab-star')) return;
       flip();
@@ -287,7 +316,7 @@ export function renderVocab(): HTMLElement {
     const onBookmark = (e: Event) => {
       e.stopPropagation();
       toggleBookmark(entry.word);
-      draw();
+      applyBookmarkState(entry.word);
     };
     root.querySelector('#bm-front')?.addEventListener('click', onBookmark);
     root.querySelector('#bm-back')?.addEventListener('click', onBookmark);
@@ -311,7 +340,7 @@ export function renderVocab(): HTMLElement {
     const word = queue[qIdx];
     if (e.key === ' ') {
       e.preventDefault();
-      if (word) flip_();
+      flip();
     } else if (mode === 'review' && flipped && word && (e.key === '1' || e.key === '2')) {
       e.preventDefault();
       grade(word, e.key === '2');
@@ -321,7 +350,6 @@ export function renderVocab(): HTMLElement {
       if (qIdx > 0) { qIdx--; flipped = false; draw(); }
     }
   };
-  function flip_() { flipped = !flipped; draw(); }
   window.addEventListener('keydown', onKeyDown);
 
   refreshQueue();
