@@ -45,6 +45,8 @@ export interface TestSession {
   annotations?: Record<string, Annotation[]>; // questionId -> list of annotations
   drawings?: Record<string, string>; // questionId -> canvas data URL
   isStructuredSession?: boolean;
+  /** Set when this session is one module of a full-length practice test. */
+  examModuleId?: string;
   sessionConfig?: {
     section?: Section | 'Both';
     difficulty?: number;
@@ -85,13 +87,15 @@ export interface UserStats {
 }
 
 export interface AppState {
-  currentView: 'dashboard' | 'test' | 'review' | 'vocab' | 'saved' | 'analytics';
+  currentView: 'dashboard' | 'test' | 'review' | 'vocab' | 'saved' | 'analytics' | 'exam';
   session: TestSession | null;
   stats: UserStats;
   questionBank: Question[];
   difficultyOverrides?: Record<string, Difficulty>;
   theme?: 'dark' | 'light';
   hideQuestionDetails?: boolean;
+  /** Result of the exam module just submitted; consumed by the Exam view. */
+  lastExamResult?: { moduleId: string; correct: number; total: number };
 }
 
 

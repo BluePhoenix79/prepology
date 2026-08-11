@@ -9,6 +9,7 @@ import { renderReview } from './views/Review';
 import { renderVocab } from './views/Vocab';
 import { renderSaved } from './views/Saved';
 import { renderAnalytics } from './views/Analytics';
+import { renderExam } from './views/Exam';
 
 // Ultra-fast async question bank initialization with IndexedDB caching
 async function initQuestionBank() {
@@ -47,7 +48,7 @@ if ('serviceWorker' in navigator) {
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
-type NavView = 'dashboard' | 'vocab' | 'review' | 'saved' | 'analytics';
+type NavView = 'dashboard' | 'vocab' | 'review' | 'saved' | 'analytics' | 'exam';
 
 const NAV_GROUPS: Array<{ label: string; items: Array<{ view: NavView; label: string; icon: string }> }> = [
   {
@@ -60,6 +61,7 @@ const NAV_GROUPS: Array<{ label: string; items: Array<{ view: NavView; label: st
     label: 'Practice',
     items: [
       { view: 'vocab', label: 'Vocab Cards', icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>' },
+      { view: 'exam', label: 'Practice Tests', icon: '<path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>' },
     ],
   },
   {
@@ -148,6 +150,9 @@ function render() {
         break;
       case 'analytics':
         mainContent.appendChild(renderAnalytics());
+        break;
+      case 'exam':
+        mainContent.appendChild(renderExam());
         break;
       default:
         mainContent.appendChild(renderDashboard());

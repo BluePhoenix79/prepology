@@ -498,11 +498,58 @@ class Store {
       }
       
       this.state.stats.correctAnswers += correctInSession;
-      
+
+      // A full-length-test module reports its raw score back to the Exam view,
+      // which owns routing into the next module.
+      const examModuleId = this.state.session.examModuleId;
+      let examResult: AppState['lastExamResult'];
+      if (examModuleId) {
+        const ids = this.state.session.filteredQuestionIds;
+        let correct = 0;
+        for (const qId of ids) {
+          const q = this.state.questionBank.find(x => x.id === qId);
+          const given = this.state.session.answers[qId];
+          if (q && given && areAnswersEquivalent(q.correctAnswer, given)) correct++;
+        }
+        examResult = { moduleId: examModuleId, correct, total: ids.length };
+      }
+
       this.state.session = null;
+      this.state.lastExamResult = examResult;
       this.checkStreak();
-      this.setView('dashboard');
+      this.setView(examModuleId ? 'exam' : 'dashboard');
     }
+  }
+
+  /** Run one module of a full-length practice test. */
+  public startExamModule(moduleId: string, section: TestSession['currentSection'], questionIds: string[]) {
+    if (questionIds.length === 0) return;
+    this.state.session = {
+      id: crypto.randomUUID(),
+      startTime: Date.now(),
+      timeRemaining: 0,
+      currentSection: section,
+      filteredQuestionIds: [...questionIds],
+      answers: {},
+      checked: new Set(),
+      attempts: {},
+      flagged: new Set(),
+      eliminatedOptions: {},
+      questionTimes: {},
+      completed: false,
+      annotations: {},
+      drawings: {},
+      isStructuredSession: true,
+      examModuleId: moduleId,
+      sessionConfig: { section, questionCount: questionIds.length },
+    };
+    this.setView('test');
+  }
+
+  public consumeExamResult(): AppState['lastExamResult'] {
+    const result = this.state.lastExamResult;
+    this.state.lastExamResult = undefined;
+    return result;
   }
 
   public startTargetedSession(questions: { id: string; section: string }[]) {
