@@ -118,6 +118,7 @@ The client ID is a public value — this flow has no client secret, so it is saf
 Prepology uses these keys in `localStorage` to preserve progress:
 - `prepology_state`: Stores user settings, difficulty overrides, mistakes log, and full solve history.
 - `prepology_vocab_bookmarks`: Tracks flagged vocabulary cards.
+- `prepology_vocab_srs`: Spaced-repetition schedule per word (Leitner box, next due date, reps, lapses).
 - `prepology_auth`: The signed-in Google profile, when sign-in is configured and used.
 
 *Note: Stored state from previous versions (`preplogy_`) is automatically detected and migrated on start.*
@@ -138,7 +139,7 @@ Here is a roadmap of features planned for the future evolution of Prepology:
 
 ### 💡 Advanced Feature Ideas
 - [ ] **Interactive AI Rationale Tutor**: Integrate a large language model (LLM) agent that students can chat with on any question to get customized, interactive hints rather than reading the plain-text answer key.
-- [ ] **Spaced Repetition System (SRS) for Vocabulary**: Enhance the "Vocab Cards" tab by introducing a Leitner-system queue that resurfaces card reviews at mathematically optimized intervals.
+- [x] **Spaced Repetition System (SRS) for Vocabulary**: Enhance the "Vocab Cards" tab by introducing a Leitner-system queue that resurfaces card reviews at mathematically optimized intervals.
 - [ ] **Gamification & Badges**: Introduce experience points (XP), daily streak milestones, achievement badges, and level-ups to drive long-term engagement.
 - [ ] **Interactive Score Analytics Graphing**: Enhance the Analytics tab with interactive line-charts tracking estimated SAT math & reading scores across time, offering projection modeling.
 - [ ] **PDF Worksheet Export**: Enable users to export custom-filtered question pools or their mistakes list as formatted PDF worksheets with answer keys for offline paper-and-pencil practice.
