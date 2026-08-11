@@ -144,7 +144,7 @@ Here is a roadmap of features planned for the future evolution of Prepology:
 - [ ] **Interactive Score Analytics Graphing**: Enhance the Analytics tab with interactive line-charts tracking estimated SAT math & reading scores across time, offering projection modeling.
 - [ ] **PDF Worksheet Export**: Enable users to export custom-filtered question pools or their mistakes list as formatted PDF worksheets with answer keys for offline paper-and-pencil practice.
 - [ ] **Peer Challenge Arena**: Introduce a real-time multiplayer "challenge mode" where friends can compete in small, timed mini-tests to solve questions correctly.
-- [ ] **Progressive Web App (PWA) Support**: Enable complete offline caching so students can continue practicing or studying vocabulary without an active internet connection.
+- [x] **Progressive Web App (PWA) Support**: Enable complete offline caching so students can continue practicing or studying vocabulary without an active internet connection.
 
 ---
 
