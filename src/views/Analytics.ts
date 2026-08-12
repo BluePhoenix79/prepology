@@ -1,4 +1,6 @@
 import { store } from '../state/Store';
+import { buildTrends } from '../utils/scoreTrend';
+import { renderScoreTrendChart } from './ScoreTrendChart';
 
 export function renderAnalytics(): HTMLElement {
   const root = document.createElement('div');
@@ -277,6 +279,8 @@ export function renderAnalytics(): HTMLElement {
         </div>
       </div>
     </div>
+
+    <div id="score-trend-slot"></div>
 
     <!-- Activity Trend stacked bar chart -->
     <div class="glass" style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;">
@@ -726,6 +730,9 @@ export function renderAnalytics(): HTMLElement {
   root.querySelector('#view-saved-btn')?.addEventListener('click', () => {
     store.setView('saved');
   });
+
+  // Interactive estimated-score trend, mounted after the template is written.
+  root.querySelector('#score-trend-slot')?.replaceWith(renderScoreTrendChart(buildTrends(stats)));
 
   return root;
 }
