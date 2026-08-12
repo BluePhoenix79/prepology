@@ -1002,6 +1002,15 @@ select:focus, input:focus {
   cursor: pointer;
 }
 .vocab-card.flipped { transform: rotateY(180deg); }
+
+/* The card-change fade lives on the scene, not the card: animating transform
+   on the card itself would override the rotateY the flip depends on. Opacity
+   only, so the 3D context is left alone. */
+.vocab-scene { animation: cardIn var(--dur-3) var(--ease-out); }
+@keyframes cardIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 .vocab-face {
   position: absolute;
   inset: 0;
@@ -1137,6 +1146,15 @@ select:focus, input:focus {
 }
 .vocab-star:hover { background: var(--c-elevated); color: var(--c-amber); transform: scale(1.1); }
 .vocab-star.active { color: var(--c-amber); }
+/* Fill comes from the class, not a fill attribute, so the bookmark can be
+   toggled without redrawing (which would reset the card's flip). */
+.vocab-star svg { fill: none; transition: fill var(--dur-1) var(--ease); }
+.vocab-star.active svg { fill: currentColor; animation: starPop var(--dur-3) var(--ease-spring); }
+@keyframes starPop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
 
 .vocab-hint-label {
   font-size: 0.7rem;
@@ -1222,7 +1240,12 @@ select:focus, input:focus {
   color: var(--c-text-3);
 }
 .vocab-grade-when { font-size: 0.7rem; font-weight: 500; color: var(--c-text-3); }
-.vocab-reveal-nudge { font-size: 0.78rem; color: var(--c-text-3); }
+.vocab-reveal-nudge {
+  font-size: 0.78rem;
+  color: var(--c-text-3);
+  transition: opacity var(--dur-2) var(--ease);
+}
+.vocab-reveal-nudge.is-hidden { opacity: 0; pointer-events: none; }
 
 .vocab-browse-nav { display: flex; gap: 0.6rem; align-items: center; }
 
