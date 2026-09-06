@@ -4,7 +4,7 @@ import { store } from './state/Store';
 import { getCachedQuestions, setCachedQuestions } from './utils/dbCache';
 import { initInteractions } from './utils/interactions';
 import { renderDashboard } from './views/Dashboard';
-import { renderTestSession } from './views/TestSession';
+import { renderTestSession, cleanupTestSession } from './views/TestSession';
 import { renderReview } from './views/Review';
 import { renderVocab } from './views/Vocab';
 import { renderSaved } from './views/Saved';
@@ -94,11 +94,8 @@ function render() {
   if (state.currentView === 'test') {
     app.appendChild(renderTestSession());
   } else {
-    // Clean up modals and docked layouts if not in testing room
-    document.getElementById('desmos-modal')?.remove();
-    document.getElementById('scratchpad-modal')?.remove();
-    document.getElementById('reference-modal')?.remove();
-    document.body.classList.remove('calc-docked');
+    // Clean up timers, keyboard listeners, modals and docked layouts if not in testing room
+    cleanupTestSession();
 
     const shell = document.createElement('div');
     shell.className = 'app-shell';

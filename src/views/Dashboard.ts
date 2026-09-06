@@ -1,5 +1,6 @@
 import { store } from '../state/Store';
 import type { Question } from '../types';
+import { openQuestionSearchModal } from '../components/QuestionSearchModal';
 
 let activeSection: 'Math' | 'Reading and Writing' = 'Reading and Writing';
 let activeDifficulty: number = 0; // 0 = All, 1 = Easy, 2 = Medium, 3 = Hard
@@ -72,9 +73,17 @@ export function renderDashboard(): HTMLElement {
           <h1 style="font-size:1.75rem; font-weight:800; color:var(--c-text); margin:0;">Dashboard</h1>
           <p style="font-size:0.875rem; color:var(--c-text-2); margin:0.25rem 0 0 0;">Master the Digital SAT with adaptive practice drills and full session analytics.</p>
         </div>
-        <div style="display:flex; align-items:center; gap:0.75rem;">
-          <button class="btn op-btn-primary" id="btn-start-session-modal" style="background:var(--c-blue); color:#fff; font-weight:700; font-size:0.9rem; padding:0.6rem 1.25rem; border-radius:10px; cursor:pointer; box-shadow:var(--shadow-md);">
-            Start Test Session
+        <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="btn-open-search-modal" style="font-size:0.825rem; font-weight:700; padding:0.55rem 0.95rem; border-radius:10px; display:flex; align-items:center; gap:0.45rem; cursor:pointer;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Search Questions
+          </button>
+          <button class="btn btn-secondary" id="btn-timed-module-sim" style="font-size:0.825rem; font-weight:700; padding:0.55rem 0.95rem; border-radius:10px; display:flex; align-items:center; gap:0.45rem; cursor:pointer;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Timed Module Sim
+          </button>
+          <button class="btn op-btn-primary" id="btn-start-session-modal" style="background:var(--c-blue); color:#fff; font-weight:700; font-size:0.85rem; padding:0.55rem 1.15rem; border-radius:10px; cursor:pointer; box-shadow:var(--shadow-md);">
+            Custom Session
           </button>
         </div>
       </div>
@@ -243,6 +252,95 @@ export function renderDashboard(): HTMLElement {
     `;
   }
 
+
+  function openTimedModuleModal() {
+    const existing = document.getElementById('timed-module-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'timed-module-modal';
+    modal.style.position = 'fixed';
+    modal.style.inset = '0';
+    modal.style.zIndex = '100000';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    modal.style.background = 'rgba(0, 0, 0, 0.65)';
+    modal.style.backdropFilter = 'blur(4px)';
+
+    modal.innerHTML = `
+      <div style="background:var(--c-card); border:1px solid var(--c-border); border-radius:18px; width:min(640px, 92vw); padding:1.75rem; box-shadow:0 25px 50px rgba(0,0,0,0.5);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+          <div>
+            <h3 style="margin:0; font-size:1.25rem; font-weight:800; color:var(--c-text); display:flex; align-items:center; gap:0.5rem;">
+              ⏱ Timed SAT Module Simulator
+            </h3>
+            <p style="margin:0.25rem 0 0 0; font-size:0.8rem; color:var(--c-text-2);">
+              Simulate authentic Digital SAT modules under real question counts and pacing pressure.
+            </p>
+          </div>
+          <button id="timed-modal-close" style="background:none; border:none; color:var(--c-text-2); font-size:1.25rem; cursor:pointer;">✕</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:1rem; margin-top:1rem;">
+          <!-- Reading & Writing Card -->
+          <div style="background:var(--c-elevated); border:1px solid var(--c-border); border-radius:14px; padding:1.25rem; display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:var(--c-blue); background:rgba(59,130,246,0.12); padding:0.2rem 0.55rem; border-radius:6px;">Section 1</span>
+                <span style="font-size:0.8rem; font-weight:700; color:var(--c-text-2);">32 Minutes</span>
+              </div>
+              <h4 style="margin:0 0 0.5rem 0; font-size:1.1rem; font-weight:800; color:var(--c-text);">Reading &amp; Writing Module</h4>
+              <ul style="margin:0; padding-left:1.2rem; font-size:0.8rem; color:var(--c-text-2); line-height:1.6;">
+                <li><strong>27 questions</strong> from official College Board bank</li>
+                <li>Target pace: <strong>~71 seconds</strong> / question</li>
+                <li>Craft, Information, Ideas &amp; Conventions</li>
+              </ul>
+            </div>
+            <button id="btn-start-timed-rw" class="btn op-btn-primary" style="margin-top:1.25rem; width:100%; background:var(--c-blue); color:#fff; font-weight:700; padding:0.65rem 1rem; border-radius:10px;">
+              Start R&amp;W Module →
+            </button>
+          </div>
+
+          <!-- Math Card -->
+          <div style="background:var(--c-elevated); border:1px solid var(--c-border); border-radius:14px; padding:1.25rem; display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#8b5cf6; background:rgba(139,92,246,0.12); padding:0.2rem 0.55rem; border-radius:6px;">Section 2</span>
+                <span style="font-size:0.8rem; font-weight:700; color:var(--c-text-2);">35 Minutes</span>
+              </div>
+              <h4 style="margin:0 0 0.5rem 0; font-size:1.1rem; font-weight:800; color:var(--c-text);">Mathematics Module</h4>
+              <ul style="margin:0; padding-left:1.2rem; font-size:0.8rem; color:var(--c-text-2); line-height:1.6;">
+                <li><strong>22 questions</strong> from official College Board bank</li>
+                <li>Target pace: <strong>~95 seconds</strong> / question</li>
+                <li>Full Desmos &amp; Scratchpad active</li>
+              </ul>
+            </div>
+            <button id="btn-start-timed-math" class="btn op-btn-primary" style="margin-top:1.25rem; width:100%; background:linear-gradient(135deg, #8b5cf6, #3b82f6); color:#fff; font-weight:700; padding:0.65rem 1rem; border-radius:10px;">
+              Start Math Module →
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    modal.querySelector('#timed-modal-close')?.addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+    modal.querySelector('#btn-start-timed-rw')?.addEventListener('click', () => {
+      close();
+      store.startSession('Reading and Writing', 0, undefined, undefined, true, true, undefined, 27, true);
+    });
+
+    modal.querySelector('#btn-start-timed-math')?.addEventListener('click', () => {
+      close();
+      store.startSession('Math', 0, undefined, undefined, true, true, undefined, 22, true);
+    });
+  }
+
   function openStartSessionModal() {
     const modal = document.createElement('div');
     modal.id = 'start-session-modal';
@@ -402,6 +500,15 @@ export function renderDashboard(): HTMLElement {
     root.querySelector('#btn-start-session-modal')?.addEventListener('click', () => {
       openStartSessionModal();
     });
+
+    root.querySelector('#btn-open-search-modal')?.addEventListener('click', () => {
+      openQuestionSearchModal();
+    });
+
+    root.querySelector('#btn-timed-module-sim')?.addEventListener('click', () => {
+      openTimedModuleModal();
+    });
+
 
     root.querySelector('#tab-rw')?.addEventListener('click', () => {
       activeSection = 'Reading and Writing';

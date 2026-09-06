@@ -82,6 +82,8 @@ export interface UserStats {
     domain: string;
     skill: string;
   }>;
+  targetScore?: number; // e.g. 1500
+  satTestDate?: string; // YYYY-MM-DD
 }
 
 export interface AppState {

@@ -3,7 +3,7 @@ import type { Question } from '../types';
 const DB_NAME = 'prepology_cache';
 const DB_VERSION = 1;
 const STORE_NAME = 'questions_store';
-const CACHE_KEY = 'question_bank_v1';
+const CACHE_KEY = 'question_bank_v3';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

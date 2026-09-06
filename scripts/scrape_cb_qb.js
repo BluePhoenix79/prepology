@@ -376,8 +376,8 @@
     // CB format 2: keys: ["UUID-of-correct-option"]  (UUID to cross-ref with options)
     let correctAnswer = '';
     if (Array.isArray(raw.correct_answer) && raw.correct_answer.length > 0) {
-      // Direct letter: ["B"]
-      correctAnswer = String(raw.correct_answer[0]).toUpperCase().charAt(0);
+      const rawAns = String(raw.correct_answer[0]).trim();
+      correctAnswer = options.length > 0 && ['A','B','C','D'].includes(rawAns.toUpperCase()) ? rawAns.toUpperCase() : rawAns;
     } else if (Array.isArray(raw.keys) && raw.keys.length > 0) {
       // UUID lookup: find which position (A/B/C/D) the UUID maps to
       const keyUuid = raw.keys[0];

@@ -192,6 +192,16 @@ class Store {
     this.notify();
   }
 
+  public setTargetScore(score: number) {
+    this.state.stats.targetScore = score;
+    this.notify();
+  }
+
+  public setSatTestDate(dateStr: string) {
+    this.state.stats.satTestDate = dateStr;
+    this.notify();
+  }
+
   public saveAnnotation(questionId: string, annotation: { id: string; text: string; style: string; note?: string }) {
     if (!this.state.session) return;
     if (!this.state.session.annotations) this.state.session.annotations = {};

@@ -1,6 +1,7 @@
 import { store } from '../state/Store';
-import { buildTrends } from '../utils/scoreTrend';
+import { buildScoreTrend } from '../utils/scoreTrend';
 import { renderScoreTrendChart } from './ScoreTrendChart';
+import { openTargetGoalModal } from '../components/TargetGoalModal';
 
 export function renderAnalytics(): HTMLElement {
   const root = document.createElement('div');
@@ -226,21 +227,16 @@ export function renderAnalytics(): HTMLElement {
           Analytics
         </h1>
       </div>
-      <div style="display:flex; gap:0.5rem; align-items:center;">
-        <select class="op-select" style="padding:0.4rem 1.5rem 0.4rem 0.75rem; font-size:0.8125rem; font-weight:500; height:32px; border-radius:6px; border:1px solid var(--c-border); background:var(--c-elevated); color:var(--c-text);">
-          <option>All time</option>
-          <option>Last 30 days</option>
-          <option>Last 7 days</option>
-        </select>
-        <button class="btn" style="padding:0.4rem 0.75rem; font-size:0.8125rem; font-weight:500; height:32px; border-radius:6px; border:1px solid var(--c-border); background:var(--c-card); color:var(--c-text); display:flex; align-items:center; gap:4px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
-          More options
+      <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+        <button id="btn-analytics-set-goal" class="btn" style="padding:0.4rem 0.85rem; font-size:0.8125rem; font-weight:700; height:32px; border-radius:6px; border:1px solid var(--c-border); background:var(--c-elevated); color:var(--c-text); display:flex; align-items:center; gap:0.4rem; cursor:pointer;" title="Click to adjust your Target SAT Score">
+          <span style="color:var(--c-amber); font-weight:800;">🎯 Goal: ${stats.targetScore || 1500}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
     </div>
 
     <!-- Metric Cards Grid -->
-    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:1.25rem; margin-bottom:1.5rem;">
+    <div class="analytics-metrics-grid" style="display:grid; gap:1.25rem; margin-bottom:1.5rem;">
       <div class="glass" style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1.25rem; display:flex; justify-content:space-between; align-items:center; position:relative;">
         <div>
           <div style="font-size:0.8125rem; color:var(--c-text-2); font-weight:600;">Questions Attempted</div>
@@ -333,7 +329,7 @@ export function renderAnalytics(): HTMLElement {
     </div>
 
     <!-- Donut Charts Side-by-Side -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+    <div class="analytics-donuts-grid" style="display:grid; gap:1.5rem; margin-bottom:1.5rem;">
       <!-- Section Time Donut -->
       <div class="glass" style="background:var(--c-card); border:1px solid var(--c-border); border-radius:12px; padding:1.5rem; display:flex; flex-direction:column; justify-content:space-between;">
         <div>
@@ -732,7 +728,22 @@ export function renderAnalytics(): HTMLElement {
   });
 
   // Interactive estimated-score trend, mounted after the template is written.
-  root.querySelector('#score-trend-slot')?.replaceWith(renderScoreTrendChart(buildTrends(stats)));
+  root.querySelector('#score-trend-slot')?.replaceWith(renderScoreTrendChart(buildScoreTrend(stats)));
+
+  // Target Goal setting modal in Analytics
+  root.querySelector('#btn-analytics-set-goal')?.addEventListener('click', () => {
+    openTargetGoalModal((newGoal) => {
+      const goalBtn = root.querySelector('#btn-analytics-set-goal');
+      if (goalBtn) {
+        goalBtn.innerHTML = `
+          <span style="color:var(--c-amber); font-weight:800;">🎯 Goal: ${newGoal}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        `;
+      }
+      const updatedTrend = buildScoreTrend(store.getState().stats);
+      root.querySelector('.trend-card')?.replaceWith(renderScoreTrendChart(updatedTrend));
+    });
+  });
 
   return root;
 }

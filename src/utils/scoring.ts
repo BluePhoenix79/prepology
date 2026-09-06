@@ -1,16 +1,17 @@
 import type { AppState, TestSession, Question } from '../types';
+import { areAnswersEquivalent } from '../state/Store';
 
 /**
  * Implements an adaptive scoring algorithm based on Item Response Theory (IRT) concepts.
- * Returns a predicted score from 400 to 800 per section.
+ * Returns a predicted score from 200 to 800 per section.
  */
 export function calculatePredictedScore(session: TestSession, questionBank: Question[]): number {
-  let score = 400; // Base score
   let totalWeight = 0;
   let earnedWeight = 0;
   
-  // Create a map of questions in the session for quick lookup
-  const sessionQuestions = questionBank.filter(q => q.section === session.currentSection);
+  // Only score the questions in this practice session
+  const qSet = new Set(session.filteredQuestionIds);
+  const sessionQuestions = questionBank.filter(q => qSet.has(q.id) && q.section === session.currentSection);
   
   if (sessionQuestions.length === 0) return 400;
   
@@ -19,21 +20,24 @@ export function calculatePredictedScore(session: TestSession, questionBank: Ques
     const weight = q.difficulty === 3 ? 2 : (q.difficulty === 2 ? 1.5 : 1);
     totalWeight += weight;
     
-    if (session.answers[q.id] === q.correctAnswer) {
+    const userAns = session.answers[q.id];
+    if (userAns && areAnswersEquivalent(q.correctAnswer, userAns)) {
       earnedWeight += weight;
     }
   });
   
+  if (totalWeight === 0) return 400;
+
   // Calculate percentage of weighted score earned
   const performanceRatio = earnedWeight / totalWeight;
   
-  // Map ratio to 400-800 scale
-  score = Math.round(400 + (performanceRatio * 400));
+  // Map ratio to 200-800 scale (official digital SAT section score range)
+  let score = Math.round(200 + (performanceRatio * 600));
   
   // Snap to nearest 10
   score = Math.round(score / 10) * 10;
   
-  return score;
+  return Math.min(800, Math.max(200, score));
 }
 
 /**
@@ -44,14 +48,16 @@ export function updateTopicMastery(state: AppState): Record<string, number> {
   if (!session) return stats.topicMastery;
   
   const updatedMastery = { ...stats.topicMastery };
-  const topicCounts: Record<string, { total: number, correct: number }> = {};
+  const topicCounts: Record<string, { total: number; correct: number }> = {};
   
+  const qSet = new Set(session.filteredQuestionIds);
   questionBank.forEach(q => {
-    if (session.answers[q.id]) {
+    if (qSet.has(q.id) && session.answers[q.id]) {
       if (!topicCounts[q.domain]) topicCounts[q.domain] = { total: 0, correct: 0 };
       topicCounts[q.domain].total++;
       
-      if (session.answers[q.id] === q.correctAnswer) {
+      const userAns = session.answers[q.id];
+      if (areAnswersEquivalent(q.correctAnswer, userAns)) {
         topicCounts[q.domain].correct++;
       }
     }

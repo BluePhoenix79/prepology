@@ -13,6 +13,36 @@ let lastTimerTick = Date.now();
 let lastRenderedIdx = -1;
 let questionTimerEl: HTMLElement | null = null;
 let timerInterval: ReturnType<typeof setInterval> | null = null;
+let activeKeyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+
+export function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+export function cleanupTestSession() {
+  stopTimer();
+  if (activeKeyDownHandler) {
+    window.removeEventListener('keydown', activeKeyDownHandler);
+    activeKeyDownHandler = null;
+  }
+  removeHighlightToolbar();
+  document.getElementById('desmos-modal')?.remove();
+  document.getElementById('scratchpad-modal')?.remove();
+  document.getElementById('reference-modal')?.remove();
+  document.getElementById('report-issue-modal')?.remove();
+  document.getElementById('session-summary-modal')?.remove();
+  document.body.classList.remove('calc-docked');
+  document.body.style.cursor = '';
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    lastTimerTick = Date.now();
+  });
+}
 
 // Floating Highlight & Annotation state
 let activeHighlightToolbar: HTMLElement | null = null;
@@ -410,8 +440,8 @@ export function renderTestSession(): HTMLElement {
     timerInterval = setInterval(() => {
       const state = store.getState();
       const sess = state.session;
-      if (!sess) {
-        stopTimer();
+      if (!sess || state.currentView !== 'test') {
+        cleanupTestSession();
         return;
       }
       const q = questions[idx];
@@ -931,12 +961,7 @@ export function renderTestSession(): HTMLElement {
     }
 
     root.querySelector('#exit-btn')?.addEventListener('click', () => {
-      document.getElementById('desmos-modal')?.remove();
-      document.getElementById('scratchpad-modal')?.remove();
-      document.getElementById('reference-modal')?.remove();
-      document.body.classList.remove('calc-docked');
-      removeHighlightToolbar();
-      stopTimer();
+      cleanupTestSession();
       store.endSession();
     });
     root.querySelector('#flag-btn')?.addEventListener('click', () => { store.toggleFlag(q.id); draw(); });
@@ -1527,6 +1552,10 @@ export function renderTestSession(): HTMLElement {
     }
   };
 
+  if (activeKeyDownHandler) {
+    window.removeEventListener('keydown', activeKeyDownHandler);
+  }
+  activeKeyDownHandler = handleKeyDown;
   window.addEventListener('keydown', handleKeyDown);
 
   draw();
@@ -1630,17 +1659,13 @@ export function showSessionSummaryModal() {
   document.body.appendChild(modal);
 
   modal.querySelector('#sum-review-btn')?.addEventListener('click', () => {
-    document.getElementById('desmos-modal')?.remove();
-    document.getElementById('scratchpad-modal')?.remove();
-    document.getElementById('reference-modal')?.remove();
+    cleanupTestSession();
     modal.remove();
     store.setView('review');
   });
 
   modal.querySelector('#sum-finish-btn')?.addEventListener('click', () => {
-    document.getElementById('desmos-modal')?.remove();
-    document.getElementById('scratchpad-modal')?.remove();
-    document.getElementById('reference-modal')?.remove();
+    cleanupTestSession();
     modal.remove();
     store.endSession();
   });

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "whiz-test-01",
+    "section": "Math",
+    "domain": "Algebra",
+    "skill": "Linear equations in one variable",
+    "difficulty": 1,
+    "questionText": "If $3x + 9 = 24$, what is the value of $x$?",
+    "options": [
+      { "id": "A", "text": "$3$" },
+      { "id": "B", "text": "$5$" },
+      { "id": "C", "text": "$7$" },
+      { "id": "D", "text": "$9$" }
+    ],
+    "correctAnswer": "B",
+    "rationale": "Subtract 9 from both sides: $3x = 15$. Divide by 3: $x = 5$.",
+    "tags": ["Whiz", "SAT", "Math", "Algebra"]
+  }
+]
